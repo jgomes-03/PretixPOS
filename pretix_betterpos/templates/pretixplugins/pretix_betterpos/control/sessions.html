@@ -1,0 +1,27 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% trans "BetterPOS Sessions" %}</title>
+</head>
+<body>
+    <h1>{% trans "POS Sessions" %}</h1>
+    <h2>{% trans "Open sessions" %}</h2>
+    <ul>
+        {% for session in open_sessions %}
+            <li>{{ session.register.code }} - {{ session.opened_at }} - {{ session.expected_cash }}</li>
+        {% empty %}
+            <li>{% trans "No open sessions" %}</li>
+        {% endfor %}
+    </ul>
+
+    <h2>{% trans "Recent sessions" %}</h2>
+    <ul>
+        {% for session in recent_sessions %}
+            <li>{{ session.register.code }} - {{ session.status }} - {{ session.opened_at }}</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

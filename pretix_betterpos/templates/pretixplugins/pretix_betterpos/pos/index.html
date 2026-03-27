@@ -1,0 +1,33 @@
+{% load i18n static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BetterPOS</title>
+    <link rel="stylesheet" href="{% static 'pretixplugins/pretix_betterpos/pos.css' %}">
+</head>
+<body>
+    <main class="betterpos-layout">
+        <section class="panel panel-catalog">
+            <h1>{% trans "BetterPOS" %}</h1>
+            <p>{% trans "Touch-first POS interface." %}</p>
+            <div id="catalog-root"></div>
+        </section>
+        <section class="panel panel-cart">
+            <h2>{% trans "Cart" %}</h2>
+            <div id="cart-root"></div>
+            <button id="btn-create-order" type="button">{% trans "Create order" %}</button>
+            <button id="btn-cash" type="button">{% trans "Pay cash" %}</button>
+            <button id="btn-eupago" type="button">{% trans "Pay with euPago" %}</button>
+        </section>
+    </main>
+    <script>
+        window.BETTERPOS_CONTEXT = {
+            organizer: '{{ event.organizer.slug }}',
+            event: '{{ event.slug }}'
+        };
+    </script>
+    <script src="{% static 'pretixplugins/pretix_betterpos/pos.js' %}"></script>
+</body>
+</html>

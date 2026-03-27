@@ -1,0 +1,2 @@
+[pretix.plugin]
+pretix_betterpos = pretix_betterpos:PluginApp.PretixPluginMeta

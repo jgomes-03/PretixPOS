@@ -1,0 +1,5 @@
+include LICENSE
+include README.md
+recursive-include pretix_betterpos/static *
+recursive-include pretix_betterpos/templates *
+recursive-include pretix_betterpos/locale *

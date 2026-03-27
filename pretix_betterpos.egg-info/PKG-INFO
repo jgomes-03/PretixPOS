@@ -1,0 +1,31 @@
+Metadata-Version: 2.4
+Name: pretix-betterpos
+Version: 0.1.0
+Summary: On-site POS plugin for Pretix
+Home-page: https://example.invalid/pretix-betterpos
+Author: BetterPOS Team
+License: Apache-2.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: author
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
+
+# pretix-betterpos
+
+Native Pretix POS plugin for on-site sales with cash and euPago payment support.
+
+## Status
+
+Initial MVP implementation scaffold.
+
+## Scope
+
+- Event-scoped registers and cash sessions
+- POS cart and order creation based on Pretix catalog
+- Cash payments and async euPago payment initiation
+- Auditable actions for discounts, cancellations, refunds, and cash movements
