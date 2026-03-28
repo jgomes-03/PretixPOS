@@ -1,0 +1,447 @@
+{% extends "pretixplugins/pretix_betterpos/admin/base.html" %}
+{% load i18n %}
+
+{% block admin_content %}
+<div class="admin-section">
+    <div class="section-header">
+        <h3 class="section-title">{% trans "Transactions" %}</h3>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-section">
+        <form method="get" class="filter-form" id="filterForm">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>{% trans "Date From" %}:</label>
+                    <input type="date" name="date_from" value="{{ date_from }}" class="form-control quick-filter-input">
+                </div>
+
+                <div class="filter-group">
+                    <label>{% trans "Date To" %}:</label>
+                    <input type="date" name="date_to" value="{{ date_to }}" class="form-control quick-filter-input">
+                </div>
+
+                <div class="filter-group">
+                    <label>{% trans "Payment Method" %}:</label>
+                    <select name="channel" class="form-control quick-filter-input">
+                        <option value="">--- {% trans "All" %} ---</option>
+                        {% for value, label in channels %}
+                            <option value="{{ value }}" {% if channel == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>{% trans "Status" %}:</label>
+                    <select name="state" class="form-control quick-filter-input">
+                        <option value="">--- {% trans "All" %} ---</option>
+                        {% for value, label in states %}
+                            <option value="{{ value }}" {% if state == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="filter-actions">
+                <button type="submit" class="btn btn-primary">{% trans "Apply Filters" %}</button>
+                <a href="{% url 'plugins:pretix_betterpos:transactions' organizer=event.organizer.slug event=event.slug %}" class="btn btn-secondary">
+                    {% trans "Reset" %}
+                </a>
+                <a
+                    href="/control/event/{{ event.organizer.slug }}/{{ event.slug }}/betterpos/api/transactions/export/csv/?{% for key, value in request.GET.items %}{{ key }}={{ value|urlencode }}{% if not forloop.last %}&{% endif %}{% endfor %}"
+                    class="btn btn-secondary"
+                >
+                    {% trans "Export CSV" %}
+                </a>
+            </div>
+            <div class="filter-status" id="filter-status" style="display: none; margin-top: 1rem; padding: 0.75rem; background: #e3f2fd; border-radius: 4px; font-size: 0.9rem; color: #1976d2;">
+                {% trans "Filtering..." %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Results -->
+    {% if transactions %}
+    <div class="table-responsive">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>{% trans "Order ID" %}</th>
+                    <th>{% trans "Amount" %}</th>
+                    <th>{% trans "Payment" %}</th>
+                    <th>{% trans "Status" %}</th>
+                    <th>{% trans "Operator" %}</th>
+                    <th>{% trans "Register" %}</th>
+                    <th>{% trans "Session" %}</th>
+                    <th>{% trans "Date" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tx in transactions %}
+                <tr data-tx-id="{{ tx.id }}">
+                    <td><strong>{{ tx.order.code }}</strong></td>
+                    <td>{{ tx.order.total|floatformat:2 }} €</td>
+                    <td>
+                        {% if tx.channel == "cash" %}
+                            <span class="badge badge-info" title="Payment method: Cash">💵 {% trans "Cash" %}</span>
+                        {% elif tx.channel == "eupago" %}
+                            <span class="badge badge-primary" title="Payment method: euPago gateway">💳 euPago</span>
+                        {% else %}
+                            <span class="badge badge-secondary" title="Payment method">{{ tx.get_channel_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if tx.state == "paid" %}
+                            <span class="badge badge-success" title="Payment successfully processed">✓ {% trans "Paid" %}</span>
+                        {% elif tx.state == "pending_async" %}
+                            <span class="badge badge-warning" title="Payment processing asynchronously">⏳ {% trans "Pending" %}</span>
+                        {% elif tx.state == "failed" %}
+                            <span class="badge badge-danger" title="Payment failed - may require retry or manual review">✗ {% trans "Failed" %}</span>
+                        {% elif tx.state == "cancelled_unpaid" %}
+                            <span class="badge badge-secondary" title="Order cancelled - no payment was taken">⛔ {% trans "Cancelled" %}</span>
+                        {% else %}
+                            <span class="badge badge-secondary" title="Transaction status">{{ tx.get_state_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ tx.operator.first_name }} {{ tx.operator.last_name|truncatechars:1 }}</td>
+                    <td>{{ tx.register.name }}</td>
+                    <td>
+                        {% if tx.session %}
+                            {{ tx.session.id }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>{{ tx.created_at|date:"SHORT_DATETIME_FORMAT" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="btn-pagination">« {% trans "First" %}</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="btn-pagination">‹ {% trans "Previous" %}</a>
+        {% endif %}
+
+        <span class="pagination-info">
+            {% trans "Page" %} {{ page_obj.number }} {% trans "of" %} {{ page_obj.paginator.num_pages }}
+        </span>
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="btn-pagination">{% trans "Next" %} ›</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="btn-pagination">{% trans "Last" %} »</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">📋</div>
+        <h4>{% trans "No Transactions Yet" %}</h4>
+        <p>{% trans "Transactions will appear here after you complete your first sale." %}</p>
+        <p class="empty-state-hint">
+            {% trans "To get started:" %}
+            <ol style="display: inline-block; text-align: left; margin: 0;">
+                <li>{% trans "Create or select a register from" %} <a href="{% url 'plugins:pretix_betterpos:registers' organizer=event.organizer.slug event=event.slug %}">{% trans "Registers" %}</a></li>
+                <li>{% trans "Open a cash session" %}</li>
+                <li>{% trans "Ring up and complete a sale" %}</li>
+            </ol>
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Transaction Details Modal -->
+<div id="transactionModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">{% trans "Transaction Details" %}</h3>
+            <span class="modal-close" onclick="closeTransactionModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div id="modalLoading" style="display: none;">
+                <p>{% trans "Loading..." %}</p>
+            </div>
+            <div id="modalError" style="display: none; color: #d32f2f;">
+                <p></p>
+            </div>
+            <table class="modal-table" id="modalTable" style="display: none;">
+                <tr>
+                    <th>{% trans "Order ID" %}</th>
+                    <td id="modalOrderId"></td>
+                </tr>
+                <tr>
+                    <th>{% trans "Amount" %}</th>
+                    <td id="modalAmount"></td>
+                </tr>
+                <tr>
+                    <th>{% trans "Payment Method" %}</th>
+                    <td id="modalChannel"></td>
+                </tr>
+                <tr>
+                    <th>{% trans "Status" %}</th>
+                    <td id="modalState"></td>
+                </tr>
+                <tr>
+                    <th>{% trans "Operator" %}</th>
+                    <td id="modalOperator"></td>
+                </tr>
+                <tr>
+                    <th>{% trans "Register" %}</th>
+                    <td id="modalRegister"></td>
+                </tr>
+                <tr>
+                    <th>{% trans "Session" %}</th>
+                    <td id="modalSession"></td>
+                </tr>
+                <tr>
+                    <th>{% trans "Created" %}</th>
+                    <td id="modalCreated"></td>
+                </tr>
+                <tr>
+                    <th>{% trans "Payment Info" %}</th>
+                    <td id="modalPaymentInfo"></td>
+                </tr>
+            </table>
+        </div>
+        <div class="modal-footer">
+            <button onclick="closeTransactionModal()" class="btn btn-secondary">{% trans "Close" %}</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: var(--text);
+}
+
+.modal-close {
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #999;
+}
+
+.modal-close:hover {
+    color: #333;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.modal-table th {
+    text-align: left;
+    font-weight: 600;
+    width: 30%;
+    padding: 0.75rem;
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+}
+
+.modal-table td {
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    word-break: break-word;
+}
+
+.modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.admin-table tbody tr {
+    cursor: pointer;
+}
+
+.admin-table tbody tr:hover {
+    background: var(--bg-light);
+}
+</style>
+
+<script>
+function openTransactionModal(txId) {
+    const modal = document.getElementById('transactionModal');
+    const loading = document.getElementById('modalLoading');
+    const error = document.getElementById('modalError');
+    const table = document.getElementById('modalTable');
+
+    modal.style.display = 'flex';
+    loading.style.display = 'block';
+    error.style.display = 'none';
+    table.style.display = 'none';
+
+    fetch(`/api/organizers/{{ event.organizer.slug }}/events/{{ event.slug }}/betterpos/transactions/${txId}/status/`)
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to load transaction details');
+            return response.json();
+        })
+        .then(data => {
+            document.getElementById('modalOrderId').textContent = data.order_id || '-';
+            document.getElementById('modalAmount').textContent = (data.amount || 0).toFixed(2) + ' €';
+            document.getElementById('modalChannel').textContent = data.channel || '-';
+            document.getElementById('modalState').textContent = data.state || '-';
+            document.getElementById('modalOperator').textContent = data.operator || '-';
+            document.getElementById('modalRegister').textContent = data.register || '-';
+            document.getElementById('modalSession').textContent = data.session_id || '-';
+            document.getElementById('modalCreated').textContent = data.created_at || '-';
+            document.getElementById('modalPaymentInfo').textContent = data.payment_info ? JSON.stringify(data.payment_info, null, 2) : '-';
+
+            loading.style.display = 'none';
+            table.style.display = 'table';
+        })
+        .catch(err => {
+            loading.style.display = 'none';
+            error.style.display = 'block';
+            error.querySelector('p').textContent = err.message;
+        });
+}
+
+function closeTransactionModal() {
+    document.getElementById('transactionModal').style.display = 'none';
+}
+
+// Close modal on ESC key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeTransactionModal();
+    }
+});
+
+// Add click handlers to table rows
+document.addEventListener('DOMContentLoaded', function() {
+    const rows = document.querySelectorAll('.admin-table tbody tr');
+    rows.forEach(row => {
+        row.addEventListener('click', function() {
+            const txId = this.dataset.txId;
+            if (txId) {
+                openTransactionModal(txId);
+            }
+        });
+    });
+});
+
+// Quick filters - AJAX real-time filtering
+document.addEventListener('DOMContentLoaded', function() {
+    const filterInputs = document.querySelectorAll('.quick-filter-input');
+    const filterForm = document.getElementById('filterForm');
+    const filterStatus = document.getElementById('filter-status');
+    
+    filterInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            submitFilterFormAjax();
+        });
+    });
+    
+    if (filterForm) {
+        filterForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitFilterFormAjax();
+        });
+    }
+});
+
+function submitFilterFormAjax() {
+    const filterForm = document.getElementById('filterForm');
+    const filterStatus = document.getElementById('filter-status');
+    
+    if (!filterForm) return;
+    
+    // Show loading status
+    filterStatus.style.display = 'block';
+    
+    // Get form data
+    const formData = new FormData(filterForm);
+    const params = new URLSearchParams(formData);
+    
+    // Make AJAX request
+    fetch(`${window.location.pathname}?${params.toString()}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.text())
+    .then(html => {
+        // Parse new content
+        const parser = new DOMParser();
+        const newDoc = parser.parseFromString(html, 'text/html');
+        
+        // Replace table content
+        const oldTable = document.querySelector('.table-responsive');
+        const newTable = newDoc.querySelector('.table-responsive');
+        if (oldTable && newTable) {
+            oldTable.outerHTML = newTable.outerHTML;
+            // Re-attach click handlers to new rows
+            reattachRowClickHandlers();
+        }
+        
+        // Hide status
+        filterStatus.style.display = 'none';
+        
+        // Scroll to results
+        document.querySelector('.admin-table').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    })
+    .catch(err => {
+        filterStatus.textContent = '{% trans "Error applying filters" %}';
+        filterStatus.style.background = '#ffebee';
+        filterStatus.style.color = '#c62828';
+        console.error('Filter error:', err);
+    });
+}
+
+function reattachRowClickHandlers() {
+    const rows = document.querySelectorAll('.admin-table tbody tr');
+    rows.forEach(row => {
+        row.addEventListener('click', function() {
+            const txId = this.dataset.txId;
+            if (txId) {
+                openTransactionModal(txId);
+            }
+        });
+    });
+}
+</script>
+{% endblock %}

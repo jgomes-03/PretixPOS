@@ -20,6 +20,7 @@ pretix_betterpos/api/views.py
 pretix_betterpos/management/__init__.py
 pretix_betterpos/management/commands/__init__.py
 pretix_betterpos/management/commands/sync_betterpos_pending.py
+pretix_betterpos/migrations/0001_initial.py
 pretix_betterpos/migrations/__init__.py
 pretix_betterpos/models/__init__.py
 pretix_betterpos/models/audit.py

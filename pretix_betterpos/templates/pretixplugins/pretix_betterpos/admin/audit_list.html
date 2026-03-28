@@ -1,0 +1,249 @@
+{% extends "pretixplugins/pretix_betterpos/admin/base.html" %}
+{% load i18n %}
+
+{% block admin_content %}
+<div class="admin-section">
+    <div class="section-header">
+        <h3 class="section-title">{% trans "Audit Log" %}</h3>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-section">
+        <form method="get" class="filter-form" id="filterForm">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>{% trans "Date From" %}:</label>
+                    <input type="date" name="date_from" value="{{ date_from }}" class="form-control quick-filter-input">
+                </div>
+
+                <div class="filter-group">
+                    <label>{% trans "Date To" %}:</label>
+                    <input type="date" name="date_to" value="{{ date_to }}" class="form-control quick-filter-input">
+                </div>
+
+                <div class="filter-group">
+                    <label>{% trans "Action Type" %}:</label>
+                    <select name="action_type" class="form-control quick-filter-input">
+                        <option value="">--- {% trans "All" %} ---</option>
+                        {% for value, label in action_types %}
+                            <option value="{{ value }}" {% if action_type == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="filter-actions">
+                <button type="submit" class="btn btn-primary">{% trans "Apply Filters" %}</button>
+                <a href="{% url 'plugins:pretix_betterpos:audit' organizer=event.organizer.slug event=event.slug %}" class="btn btn-secondary">
+                    {% trans "Reset" %}
+                </a>
+                <a
+                    href="/control/event/{{ event.organizer.slug }}/{{ event.slug }}/betterpos/api/audit/export/csv/?{% for key, value in request.GET.items %}{{ key }}={{ value|urlencode }}{% if not forloop.last %}&{% endif %}{% endfor %}"
+                    class="btn btn-secondary"
+                >
+                    {% trans "Export CSV" %}
+                </a>
+            </div>
+            <div class="filter-status" id="filter-status" style="display: none; margin-top: 1rem; padding: 0.75rem; background: #e3f2fd; border-radius: 4px; font-size: 0.9rem; color: #1976d2;">
+                {% trans "Filtering..." %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Results -->
+    {% if audit_logs %}
+    <div class="table-responsive">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>{% trans "Timestamp" %}</th>
+                    <th>{% trans "Actor" %}</th>
+                    <th>{% trans "Action" %}</th>
+                    <th>{% trans "Register" %}</th>
+                    <th>{% trans "Resource" %}</th>
+                    <th>{% trans "Details" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in audit_logs %}
+                <tr>
+                    <td>{{ log.created_at|date:"SHORT_DATETIME_FORMAT" }}</td>
+                    <td>{{ log.actor.first_name }} {{ log.actor.last_name|truncatechars:1 }}</td>
+                    <td>
+                        {% if log.action_type == "create" %}
+                            <span class="badge badge-primary" title="New resource created">✚ {% trans "Created" %}</span>
+                        {% elif log.action_type == "update" %}
+                            <span class="badge badge-info" title="Existing resource modified">✎ {% trans "Updated" %}</span>
+                        {% elif log.action_type == "delete" %}
+                            <span class="badge badge-danger" title="Resource was removed">✗ {% trans "Deleted" %}</span>
+                        {% elif log.action_type == "open" %}
+                            <span class="badge badge-success" title="Cash session opened">▶ {% trans "Opened" %}</span>
+                        {% elif log.action_type == "close" %}
+                            <span class="badge badge-secondary" title="Cash session closed and reconciled">⬛ {% trans "Closed" %}</span>
+                        {% else %}
+                            <span class="badge badge-secondary" title="Audit action">{{ log.get_action_type_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if log.register %}
+                            {{ log.register.name }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if log.order %}
+                            <strong>Order:</strong> {{ log.order.code }}
+                        {% elif log.session %}
+                            <strong>Session:</strong> #{{ log.session.id }}
+                        {% elif log.payment %}
+                            <strong>Payment:</strong> #{{ log.payment.id }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if log.payload %}
+                            <details>
+                                <summary>{% trans "Show details" %}</summary>
+                                <pre class="payload-display">{{ log.payload|safe }}</pre>
+                            </details>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="btn-pagination">« {% trans "First" %}</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="btn-pagination">‹ {% trans "Previous" %}</a>
+        {% endif %}
+
+        <span class="pagination-info">
+            {% trans "Page" %} {{ page_obj.number }} {% trans "of" %} {{ page_obj.paginator.num_pages }}
+        </span>
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="btn-pagination">{% trans "Next" %} ›</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="btn-pagination">{% trans "Last" %} »</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">📝</div>
+        <h4>{% trans "No Audit Log Entries" %}</h4>
+        <p>{% trans "Audit logs record all actions in your POS system." %}</p>
+        <p class="empty-state-hint">
+            {% trans "Start tracking activity by:" %}
+            <ol style="display: inline-block; text-align: left; margin: 0;">
+                <li>{% trans "Opening a cash session" %}</li>
+                <li>{% trans "Completing your first transaction" %}</li>
+            </ol>
+        </p>
+    </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .payload-display {
+        background: #f5f5f5;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 10px;
+        font-size: 11px;
+        overflow-x: auto;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    details {
+        cursor: pointer;
+    }
+
+    summary {
+        color: #0066cc;
+        text-decoration: underline;
+        font-size: 0.875rem;
+    }
+</style>
+
+<script>
+// Quick filters - AJAX real-time filtering
+document.addEventListener('DOMContentLoaded', function() {
+    const filterInputs = document.querySelectorAll('.quick-filter-input');
+    const filterForm = document.getElementById('filterForm');
+    const filterStatus = document.getElementById('filter-status');
+    
+    filterInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            submitFilterFormAjax();
+        });
+    });
+    
+    if (filterForm) {
+        filterForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitFilterFormAjax();
+        });
+    }
+});
+
+function submitFilterFormAjax() {
+    const filterForm = document.getElementById('filterForm');
+    const filterStatus = document.getElementById('filter-status');
+    
+    if (!filterForm) return;
+    
+    // Show loading status
+    filterStatus.style.display = 'block';
+    
+    // Get form data
+    const formData = new FormData(filterForm);
+    const params = new URLSearchParams(formData);
+    
+    // Make AJAX request
+    fetch(`${window.location.pathname}?${params.toString()}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.text())
+    .then(html => {
+        // Parse new content
+        const parser = new DOMParser();
+        const newDoc = parser.parseFromString(html, 'text/html');
+        
+        // Replace table content
+        const oldTable = document.querySelector('.table-responsive');
+        const newTable = newDoc.querySelector('.table-responsive');
+        if (oldTable && newTable) {
+            oldTable.outerHTML = newTable.outerHTML;
+        }
+        
+        // Hide status
+        filterStatus.style.display = 'none';
+        
+        // Scroll to results
+        const table = document.querySelector('.admin-table');
+        if (table) {
+            table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    })
+    .catch(err => {
+        filterStatus.textContent = '{% trans "Error applying filters" %}';
+        filterStatus.style.background = '#ffebee';
+        filterStatus.style.color = '#c62828';
+        console.error('Filter error:', err);
+    });
+}
+</script>
+{% endblock %}

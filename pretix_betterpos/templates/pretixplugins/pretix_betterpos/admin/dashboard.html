@@ -1,0 +1,212 @@
+{% extends "pretixplugins/pretix_betterpos/admin/base.html" %}
+{% load i18n %}
+
+{% block admin_content %}
+<div class="dashboard-grid">
+    <!-- KPI Cards -->
+    <div class="kpi-row">
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <h3>{% trans "Today's Sales" %}</h3>
+                <span class="kpi-icon">💰</span>
+            </div>
+            <div class="kpi-value">
+                {{ today_total|floatformat:2 }} €
+            </div>
+            <div class="kpi-footer">
+                {{ today_count }} {% trans "transactions" %}
+            </div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <h3>{% trans "Open Sessions" %}</h3>
+                <span class="kpi-icon">📊</span>
+            </div>
+            <div class="kpi-value">
+                {{ open_sessions_count }}
+            </div>
+            <div class="kpi-footer">
+                {% if open_sessions_count > 0 %}
+                    <span class="badge badge-warning">{% trans "Active" %}</span>
+                {% else %}
+                    <span class="badge badge-info">{% trans "All closed" %}</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <h3>{% trans "Pending Payments" %}</h3>
+                <span class="kpi-icon">⏳</span>
+            </div>
+            <div class="kpi-value">
+                {{ pending_transactions }}
+            </div>
+            <div class="kpi-footer">
+                {% if pending_transactions > 0 %}
+                    <span class="badge badge-warning">{% trans "Review needed" %}</span>
+                {% else %}
+                    <span class="badge badge-success">{% trans "All clear" %}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Open Sessions Section -->
+    {% if open_sessions %}
+    <div class="section">
+        <h3 class="section-title">{% trans "Currently Open Sessions" %}</h3>
+        <div class="table-responsive">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "Register" %}</th>
+                        <th>{% trans "Opened by" %}</th>
+                        <th>{% trans "Opened at" %}</th>
+                        <th>{% trans "Opening Float" %}</th>
+                        <th>{% trans "Expected Cash" %}</th>
+                        <th>{% trans "Status" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for session in open_sessions %}
+                    <tr>
+                        <td><strong>{{ session.register.name }}</strong></td>
+                        <td>{{ session.opened_by.first_name }} {{ session.opened_by.last_name }}</td>
+                        <td>{{ session.opened_at|date:"SHORT_DATETIME_FORMAT" }}</td>
+                        <td>{{ session.opening_float|floatformat:2 }} €</td>
+                        <td>{{ session.expected_cash|floatformat:2 }} €</td>
+                        <td><span class="badge badge-success">{% trans "Open" %}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Transactions Section -->
+    <div class="section">
+        <h3 class="section-title">{% trans "Recent Transactions (Today)" %}</h3>
+        {% if recent_transactions %}
+        <div class="table-responsive">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "Order ID" %}</th>
+                        <th>{% trans "Amount" %}</th>
+                        <th>{% trans "Payment" %}</th>
+                        <th>{% trans "Status" %}</th>
+                        <th>{% trans "Operator" %}</th>
+                        <th>{% trans "Register" %}</th>
+                        <th>{% trans "Time" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tx in recent_transactions %}
+                    <tr>
+                        <td><strong>{{ tx.order.code }}</strong></td>
+                        <td>{{ tx.order.total|floatformat:2 }} €</td>
+                        <td>
+                            {% if tx.channel == "cash" %}
+                                <span class="badge badge-info">💵 {% trans "Cash" %}</span>
+                            {% elif tx.channel == "eupago" %}
+                                <span class="badge badge-primary">💳 euPago</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if tx.state == "paid" %}
+                                <span class="badge badge-success">✓ {% trans "Paid" %}</span>
+                            {% elif tx.state == "pending_async" %}
+                                <span class="badge badge-warning">⏳ {% trans "Pending" %}</span>
+                            {% elif tx.state == "failed" %}
+                                <span class="badge badge-danger">✗ {% trans "Failed" %}</span>
+                            {% else %}
+                                <span class="badge badge-secondary">{{ tx.get_state_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ tx.operator.first_name }}</td>
+                        <td>{{ tx.register.name }}</td>
+                        <td>{{ tx.created_at|date:"H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">{% trans "No transactions today yet." %}</p>
+        {% endif %}
+    </div>
+</div>
+
+{% block admin_extra_css %}
+<style>
+    .dashboard-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    .kpi-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .kpi-card {
+        background: white;
+        border: 1px solid #e1e4e8;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .kpi-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .kpi-header h3 {
+        margin: 0;
+        font-size: 0.875rem;
+        color: #666;
+        font-weight: 500;
+    }
+
+    .kpi-icon {
+        font-size: 1.5rem;
+    }
+
+    .kpi-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+
+    .kpi-footer {
+        font-size: 0.875rem;
+        color: #999;
+    }
+
+    .section {
+        background: white;
+        border: 1px solid #e1e4e8;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .section-title {
+        margin: 0 0 1rem 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+</style>
+{% endblock %}
+
+{% endblock %}
