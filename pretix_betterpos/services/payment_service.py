@@ -186,6 +186,9 @@ class PaymentService:
         )
 
         provider_instance = payment.payment_provider
+        if not provider_instance:
+            raise ValidationError(f'Payment provider "{provider}" is not available or not configured')
+
         fallback_redirect_url = request.build_absolute_uri(request.path)
         last_provider_response = None
 
