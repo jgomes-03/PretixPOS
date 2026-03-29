@@ -25,7 +25,7 @@ class AsyncSettlementService:
 
         if external_state == 'paid':
             if payment.state != OrderPayment.PAYMENT_STATE_CONFIRMED:
-                payment.confirm()
+                payment.confirm(send_mail=False)
             transaction_row.state = BetterposTransaction.STATE_PAID
         elif external_state == 'failed':
             transaction_row.state = BetterposTransaction.STATE_FAILED

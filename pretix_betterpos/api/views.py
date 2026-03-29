@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.db.models import Sum
 from django.views import View
-from pretix.base.models import Item
+from pretix.base.models import Item, OrderPayment
 
 from pretix_betterpos.auth import get_event_from_request, has_pos_permission
 from pretix_betterpos.models import BetterposActionLog, BetterposCashSession, BetterposRegister, BetterposTransaction
@@ -19,6 +19,7 @@ from pretix_betterpos.services import (
     PaymentService,
     RefundService,
     RegisterService,
+    AsyncSettlementService,
     ValidationError,
 )
 
@@ -348,6 +349,7 @@ class EuPagoPaymentView(BasePOSApiView):
                 transaction_row=transaction_row,
                 user=request.user,
                 provider=payload.get('provider', 'eupago_mbway'),
+                phone=payload.get('phone'),
             )
             return JsonResponse(
                 {
@@ -365,7 +367,121 @@ class EuPagoPaymentView(BasePOSApiView):
 class TransactionStatusView(BasePOSApiView):
     def get(self, request, transaction_id, *args, **kwargs):
         try:
-            transaction_row = BetterposTransaction.objects.get(event=self.event, pk=transaction_id)
+            transaction_row = BetterposTransaction.objects.select_related('payment', 'order').get(event=self.event, pk=transaction_id)
+
+            # Reconcile async EuPago payments on polling requests.
+            if transaction_row.state == BetterposTransaction.STATE_PENDING:
+                if transaction_row.order.status == transaction_row.order.STATUS_PAID:
+                    transaction_row = AsyncSettlementService.finalize_pending_payment(
+                        payment=transaction_row.payment,
+                        actor=request.user,
+                        external_state='paid',
+                        metadata={'source': 'status_poll_order_state'},
+                    ) or transaction_row
+                elif transaction_row.order.status in (transaction_row.order.STATUS_EXPIRED, transaction_row.order.STATUS_CANCELED):
+                    transaction_row = AsyncSettlementService.finalize_pending_payment(
+                        payment=transaction_row.payment,
+                        actor=request.user,
+                        external_state='expired',
+                        metadata={'source': 'status_poll_order_state'},
+                    ) or transaction_row
+
+            if transaction_row.state == BetterposTransaction.STATE_PENDING and transaction_row.payment_id:
+                payment = transaction_row.payment
+                if payment.state == OrderPayment.PAYMENT_STATE_CONFIRMED:
+                    transaction_row = AsyncSettlementService.finalize_pending_payment(
+                        payment=payment,
+                        actor=request.user,
+                        external_state='paid',
+                        metadata={'source': 'status_poll_payment_state'},
+                    ) or transaction_row
+                elif payment.state in (OrderPayment.PAYMENT_STATE_FAILED, OrderPayment.PAYMENT_STATE_CANCELED):
+                    transaction_row = AsyncSettlementService.finalize_pending_payment(
+                        payment=payment,
+                        actor=request.user,
+                        external_state='failed',
+                        metadata={'source': 'status_poll_payment_state'},
+                    ) or transaction_row
+                else:
+                    provider_instance = payment.payment_provider
+                    if hasattr(provider_instance, 'check_payment_status'):
+                        try:
+                            status_info = provider_instance.check_payment_status(payment) or {}
+                            if status_info.get('confirmed'):
+                                transaction_row = AsyncSettlementService.finalize_pending_payment(
+                                    payment=payment,
+                                    actor=request.user,
+                                    external_state='paid',
+                                    metadata={'source': 'status_poll_provider', 'status_info': status_info},
+                                ) or transaction_row
+                            elif status_info.get('failed'):
+                                transaction_row = AsyncSettlementService.finalize_pending_payment(
+                                    payment=payment,
+                                    actor=request.user,
+                                    external_state='failed',
+                                    metadata={'source': 'status_poll_provider', 'status_info': status_info},
+                                ) or transaction_row
+                        except Exception:
+                            # Keep polling flow resilient even if provider status endpoint is unavailable.
+                            pass
+
+            # Fallback reconciliation when webhook/provider checks fail:
+            # infer final state from Pretix order-level payment confirmation.
+            if transaction_row.state == BetterposTransaction.STATE_PENDING:
+                # Refresh from DB to avoid stale related-object state during rapid polling.
+                transaction_row.refresh_from_db(fields=['state', 'payment', 'metadata', 'updated_at'])
+                transaction_row.order.refresh_from_db(fields=['status'])
+
+                # Manual paid confirmation in Pretix should immediately unblock POS,
+                # even when provider API checks are unavailable.
+                if transaction_row.order.status == transaction_row.order.STATUS_PAID:
+                    if transaction_row.payment_id:
+                        transaction_row = AsyncSettlementService.finalize_pending_payment(
+                            payment=transaction_row.payment,
+                            actor=request.user,
+                            external_state='paid',
+                            metadata={'source': 'status_poll_order_paid_direct'},
+                        ) or transaction_row
+                    else:
+                        transaction_row.state = BetterposTransaction.STATE_PAID
+                        transaction_row.metadata = {
+                            **transaction_row.metadata,
+                            'source': 'status_poll_order_paid_no_payment',
+                        }
+                        transaction_row.save(update_fields=['state', 'metadata', 'updated_at'])
+
+                confirmed_payment = transaction_row.order.payments.filter(
+                    state=OrderPayment.PAYMENT_STATE_CONFIRMED
+                ).order_by('-pk').first()
+
+                if confirmed_payment:
+                    if transaction_row.payment_id != confirmed_payment.pk:
+                        transaction_row.payment = confirmed_payment
+                        transaction_row.save(update_fields=['payment', 'updated_at'])
+                    transaction_row = AsyncSettlementService.finalize_pending_payment(
+                        payment=confirmed_payment,
+                        actor=request.user,
+                        external_state='paid',
+                        metadata={'source': 'status_poll_order_payments'},
+                    ) or transaction_row
+                elif transaction_row.order.status in (transaction_row.order.STATUS_EXPIRED, transaction_row.order.STATUS_CANCELED):
+                    if transaction_row.payment_id:
+                        transaction_row = AsyncSettlementService.finalize_pending_payment(
+                            payment=transaction_row.payment,
+                            actor=request.user,
+                            external_state='failed',
+                            metadata={'source': 'status_poll_order_fallback'},
+                        ) or transaction_row
+                    else:
+                        transaction_row.state = BetterposTransaction.STATE_FAILED
+                        transaction_row.metadata = {
+                            **transaction_row.metadata,
+                            'source': 'status_poll_order_fallback',
+                            'note': 'No payment object linked while order expired/canceled',
+                        }
+                        transaction_row.save(update_fields=['state', 'metadata', 'updated_at'])
+
+            transaction_row.refresh_from_db()
             return JsonResponse({'transaction': serialize_transaction(transaction_row)})
         except BetterposTransaction.DoesNotExist:
             return JsonResponse({'error': 'Transaction not found'}, status=404)

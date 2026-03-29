@@ -4,6 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="csrf-token" content="{{ csrf_token }}" />
     <title>BetterPOS</title>
     <link rel="stylesheet" href="{% static 'pretixplugins/pretix_betterpos/pos.css' %}">
     <link rel="stylesheet" href="{% static 'pretixplugins/pretix_betterpos/admin.css' %}">
@@ -15,14 +16,12 @@
     data-event="{{ event.slug }}"
     data-base-path="{{ base_path }}"
     data-api-base="{{ api_base }}"
+    data-csrf-token="{{ csrf_token }}"
     data-can-manage-registers="{{ can_manage_registers|yesno:'true,false' }}"
     data-can-view-audit="{{ can_view_audit|yesno:'true,false' }}"
     data-can-session-control="{{ can_session_control|yesno:'true,false' }}"
     data-can-sell="{{ can_sell|yesno:'true,false' }}"
   ></div>
-
-    <script src="{% static 'pretixplugins/pretix_betterpos/react.min.js' %}"></script>
-    <script src="{% static 'pretixplugins/pretix_betterpos/react-dom.min.js' %}"></script>
 
     <script>
       window.BETTERPOS = {
@@ -30,6 +29,7 @@
         event: '{{ event.slug }}',
         basePath: '{{ base_path }}',
         apiBase: '{{ api_base }}',
+        csrfToken: '{{ csrf_token }}',
         permissions: {
           canManageRegisters: {{ can_manage_registers|yesno:'true,false' }},
           canViewAudit: {{ can_view_audit|yesno:'true,false' }},
@@ -39,6 +39,6 @@
       };
     </script>
 
-    <script src="{% static 'pretixplugins/pretix_betterpos/pos.js' %}"></script>
+    <script defer src="{% static 'pretixplugins/pretix_betterpos/dist/betterpos-app.js' %}"></script>
 </body>
 </html>

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BetterPOS Frontend</title>
+  </head>
+  <body>
+    <div
+      id="betterpos-app"
+      data-organizer="demo-organizer"
+      data-event="demo-event"
+      data-base-path="/control/event/demo-organizer/demo-event/betterpos"
+      data-api-base="/control/event/demo-organizer/demo-event/betterpos/api"
+      data-can-manage-registers="true"
+      data-can-view-audit="true"
+      data-can-session-control="true"
+      data-can-sell="true"
+    ></div>
+    <script>
+      window.BETTERPOS = {
+        organizer: 'demo-organizer',
+        event: 'demo-event',
+        basePath: '/control/event/demo-organizer/demo-event/betterpos',
+        apiBase: '/control/event/demo-organizer/demo-event/betterpos/api',
+        permissions: {
+          canManageRegisters: true,
+          canViewAudit: true,
+          canSessionControl: true,
+          canSell: true
+        }
+      };
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
