@@ -1,0 +1,87 @@
+{% extends "pretixcontrol/event/base.html" %}
+{% load i18n static %}
+
+{% block content %}
+<div class="betterpos-admin-wrapper">
+    <!-- Sidebar Navigation -->
+    <aside class="betterpos-sidebar">
+        <div class="sidebar-header">
+            <h3>{% trans "BetterPOS" %}</h3>
+            <p class="sidebar-subtitle">{% trans "Management" %}</p>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <ul>
+                <li>
+                          <a href="{% url 'plugins:pretix_betterpos:dashboard' organizer=event.organizer.slug event=event.slug %}" 
+                       class="nav-link {% if 'dashboard' in request.resolver_match.url_name %}active{% endif %}">
+                        <span class="nav-icon">📊</span>
+                        <span class="nav-label">{% trans "Dashboard" %}</span>
+                    </a>
+                </li>
+                <li>
+                          <a href="{% url 'plugins:pretix_betterpos:registers' organizer=event.organizer.slug event=event.slug %}" 
+                       class="nav-link {% if 'register' in request.resolver_match.url_name %}active{% endif %}">
+                        <span class="nav-icon">🏪</span>
+                        <span class="nav-label">{% trans "Registers" %}</span>
+                    </a>
+                </li>
+                <li>
+                          <a href="{% url 'plugins:pretix_betterpos:sessions' organizer=event.organizer.slug event=event.slug %}" 
+                       class="nav-link {% if 'session' in request.resolver_match.url_name %}active{% endif %}">
+                        <span class="nav-icon">📱</span>
+                        <span class="nav-label">{% trans "Sessions" %}</span>
+                    </a>
+                </li>
+                <li>
+                          <a href="{% url 'plugins:pretix_betterpos:transactions' organizer=event.organizer.slug event=event.slug %}" 
+                       class="nav-link {% if 'transaction' in request.resolver_match.url_name %}active{% endif %}">
+                        <span class="nav-icon">💳</span>
+                        <span class="nav-label">{% trans "Transactions" %}</span>
+                    </a>
+                </li>
+                <li>
+                          <a href="{% url 'plugins:pretix_betterpos:audit' organizer=event.organizer.slug event=event.slug %}" 
+                       class="nav-link {% if 'audit' in request.resolver_match.url_name %}active{% endif %}">
+                        <span class="nav-icon">📋</span>
+                        <span class="nav-label">{% trans "Audit Log" %}</span>
+                    </a>
+                </li>
+                <li>
+                          <a href="{% url 'plugins:pretix_betterpos:reports' organizer=event.organizer.slug event=event.slug %}" 
+                       class="nav-link {% if 'report' in request.resolver_match.url_name %}active{% endif %}">
+                        <span class="nav-icon">📈</span>
+                        <span class="nav-label">{% trans "Reports" %}</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <a href="{% url 'plugins:pretix_betterpos:pos.index' organizer=event.organizer.slug event=event.slug %}" class="btn-pos-link">
+                ← {% trans "Back to POS" %}
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="betterpos-main">
+        <div class="admin-header">
+            <h2>{{ page_title }}</h2>
+            {% if messages %}
+                <div class="messages">
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="admin-content">
+            {% block admin_content %}{% endblock %}
+        </div>
+    </main>
+</div>
+
+<link rel="stylesheet" href="{% static 'pretixplugins/pretix_betterpos/admin.css' %}">
+{% endblock %}

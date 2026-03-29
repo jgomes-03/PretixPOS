@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    AuditExportCSVView,
     AuditFeedView,
     CancelOrderView,
     CatalogView,
@@ -11,23 +12,38 @@ from .views import (
     OpenSessionView,
     QuoteView,
     RefundOrderView,
+    RegisterDetailView,
+    RegistersListView,
+    ReportsSummaryView,
+    SessionReconcileView,
+    SessionsListView,
     SessionStatusView,
+    TransactionsExportCSVView,
+    TransactionsListView,
     TransactionStatusView,
     CashPaymentView,
 )
 
 api_urlpatterns = [
+    path('registers/', RegistersListView.as_view(), name='registers.list'),
+    path('registers/<int:register_id>/', RegisterDetailView.as_view(), name='registers.detail'),
     path('session/status/', SessionStatusView.as_view(), name='session.status'),
+    path('sessions/', SessionsListView.as_view(), name='sessions.list'),
     path('session/open/', OpenSessionView.as_view(), name='session.open'),
     path('session/close/', CloseSessionView.as_view(), name='session.close'),
+    path('session/<int:session_id>/reconcile/', SessionReconcileView.as_view(), name='session.reconcile'),
     path('cash/movement/', CashMovementView.as_view(), name='cash.movement'),
     path('catalog/', CatalogView.as_view(), name='catalog'),
     path('cart/quote/', QuoteView.as_view(), name='cart.quote'),
     path('order/create/', CreateOrderView.as_view(), name='order.create'),
     path('payment/cash/', CashPaymentView.as_view(), name='payment.cash'),
     path('payment/eupago/', EuPagoPaymentView.as_view(), name='payment.eupago'),
+    path('transactions/', TransactionsListView.as_view(), name='transactions.list'),
+    path('transactions/export/csv/', TransactionsExportCSVView.as_view(), name='transactions.export.csv'),
     path('transaction/<int:transaction_id>/status/', TransactionStatusView.as_view(), name='transaction.status'),
     path('order/cancel/', CancelOrderView.as_view(), name='order.cancel'),
     path('order/refund/', RefundOrderView.as_view(), name='order.refund'),
     path('audit/feed/', AuditFeedView.as_view(), name='audit.feed'),
+    path('audit/export/csv/', AuditExportCSVView.as_view(), name='audit.export.csv'),
+    path('reports/summary/', ReportsSummaryView.as_view(), name='reports.summary'),
 ]

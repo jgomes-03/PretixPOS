@@ -1,0 +1,149 @@
+{% extends "pretixplugins/pretix_betterpos/admin/base.html" %}
+{% load i18n %}
+
+{% block admin_content %}
+<div class="admin-section">
+    <div class="section-header">
+        <h3 class="section-title">
+            {% if form.instance.pk %}
+                {% trans "Edit Register" %}: {{ form.instance.name }}
+            {% else %}
+                {% trans "Create New Register" %}
+            {% endif %}
+        </h3>
+    </div>
+
+    <form method="post" class="admin-form">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+            {{ form.name }}
+            {% if form.name.errors %}
+                <div class="form-error">{{ form.name.errors }}</div>
+            {% endif %}
+            <div class="form-validation-error" id="name-error" style="display: none; color: #e74c3c; margin-top: 4px; font-size: 0.9em;"></div>
+            <small class="form-help">{% trans "Display name for the register" %}</small>
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.code.id_for_label }}">{{ form.code.label }}</label>
+            {{ form.code }}
+            {% if form.code.errors %}
+                <div class="form-error">{{ form.code.errors }}</div>
+            {% endif %}
+            <div class="form-validation-error" id="code-error" style="display: none; color: #e74c3c; margin-top: 4px; font-size: 0.9em;"></div>
+            <small class="form-help">{% trans "Unique code (lowercase, alphanumeric and hyphens only)" %}</small>
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.default_currency.id_for_label }}">{{ form.default_currency.label }}</label>
+            {{ form.default_currency }}
+            {% if form.default_currency.errors %}
+                <div class="form-error">{{ form.default_currency.errors }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.is_active.id_for_label }}">
+                {{ form.is_active }}
+                {{ form.is_active.label }}
+            </label>
+            {% if form.is_active.errors %}
+                <div class="form-error">{{ form.is_active.errors }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                {% if form.instance.pk %}
+                    {% trans "Update Register" %}
+                {% else %}
+                    {% trans "Create Register" %}
+                {% endif %}
+            </button>
+            <a href="{% url 'plugins:pretix_betterpos:registers' organizer=event.organizer.slug event=event.slug %}" class="btn btn-secondary">
+                {% trans "Cancel" %}
+            </a>
+        </div>
+    </form>
+
+    <script>
+    // Register form validation
+    document.addEventListener('DOMContentLoaded', function() {
+        const nameField = document.getElementById('{{ form.name.id_for_label }}');
+        const codeField = document.getElementById('{{ form.code.id_for_label }}');
+        const nameError = document.getElementById('name-error');
+        const codeError = document.getElementById('code-error');
+        const form = document.querySelector('form.admin-form');
+
+        function validateName(value) {
+            if (!value || value.trim() === '') {
+                return '{% trans "Name is required" %}';
+            }
+            return '';
+        }
+
+        function validateCode(value) {
+            if (!value || value.trim() === '') {
+                return '{% trans "Code is required" %}';
+            }
+            // Check for lowercase, alphanumeric and hyphens only
+            if (!/^[a-z0-9-]+$/.test(value)) {
+                return '{% trans "Code must be lowercase, alphanumeric and hyphens only" %}';
+            }
+            return '';
+        }
+
+        function updateFieldState(field, errorDiv, validator) {
+            const error = validator(field.value);
+            if (error) {
+                field.style.borderColor = '#e74c3c';
+                errorDiv.textContent = error;
+                errorDiv.style.display = 'block';
+                field.classList.add('is-invalid');
+            } else {
+                field.style.borderColor = '';
+                errorDiv.textContent = '';
+                errorDiv.style.display = 'none';
+                field.classList.remove('is-invalid');
+            }
+        }
+
+        // Validate on blur
+        nameField.addEventListener('blur', function() {
+            updateFieldState(nameField, nameError, validateName);
+        });
+
+        codeField.addEventListener('blur', function() {
+            updateFieldState(codeField, codeError, validateCode);
+        });
+
+        // Validate on input (real-time)
+        nameField.addEventListener('input', function() {
+            if (nameField.value) {
+                updateFieldState(nameField, nameError, validateName);
+            }
+        });
+
+        codeField.addEventListener('input', function() {
+            if (codeField.value) {
+                updateFieldState(codeField, codeError, validateCode);
+            }
+        });
+
+        // Validate on submit
+        form.addEventListener('submit', function(e) {
+            const nameValid = validateName(nameField.value) === '';
+            const codeValid = validateCode(codeField.value) === '';
+
+            if (!nameValid || !codeValid) {
+                e.preventDefault();
+                updateFieldState(nameField, nameError, validateName);
+                updateFieldState(codeField, codeError, validateCode);
+            }
+        });
+    });
+    </script>
+</div>
+{% endblock %}

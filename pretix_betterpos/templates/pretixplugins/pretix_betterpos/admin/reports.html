@@ -1,0 +1,229 @@
+{% extends "pretixplugins/pretix_betterpos/admin/base.html" %}
+{% load i18n %}
+
+{% block admin_content %}
+<div class="admin-section">
+    <div class="section-header">
+        <h3 class="section-title">{% trans "Reports & Analytics" %}</h3>
+    </div>
+
+    <!-- Date Range Selector -->
+    <div class="report-controls">
+        <form method="get" class="date-range-form">
+            <div class="form-group">
+                <label>{% trans "Period" %}:</label>
+                <select name="days" class="form-control" onchange="this.form.submit()">
+                    <option value="7" {% if days_range == 7 %}selected{% endif %}>{% trans "Last 7 days" %}</option>
+                    <option value="30" {% if days_range == 30 %}selected{% endif %}>{% trans "Last 30 days" %}</option>
+                    <option value="90" {% if days_range == 90 %}selected{% endif %}>{% trans "Last 90 days" %}</option>
+                    <option value="365" {% if days_range == 365 %}selected{% endif %}>{% trans "Last year" %}</option>
+                </select>
+            </div>
+        </form>
+        <p class="report-period">
+            {% trans "Period:" %} {{ date_from|date:"SHORT_DATE_FORMAT" }} - {{ date_to|date:"SHORT_DATE_FORMAT" }}
+        </p>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="report-cards">
+        <div class="report-card">
+            <h4>{% trans "Total Sales" %}</h4>
+            <div class="report-value">{{ total_sales|floatformat:2 }} €</div>
+            <p class="report-meta">{{ total_count }} {% trans "transactions" %}</p>
+        </div>
+    </div>
+
+    <!-- By Payment Method -->
+    <div class="report-section">
+        <h3 class="report-subtitle">{% trans "Sales by Payment Method" %}</h3>
+        <div class="table-responsive">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "Method" %}</th>
+                        <th>{% trans "Total" %}</th>
+                        <th>{% trans "Count" %}</th>
+                        <th>{% trans "Average" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for method, data in by_channel.items %}
+                    <tr>
+                        <td><strong>{{ method }}</strong></td>
+                        <td>{{ data.total|floatformat:2 }} €</td>
+                        <td>{{ data.count }}</td>
+                        <td>
+                            {% if data.count > 0 %}
+                                {{ data.total|add:0|div:data.count|floatformat:2 }} €
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Top Operators -->
+    <div class="report-section">
+        <h3 class="report-subtitle">{% trans "Top Operators" %}</h3>
+        {% if operators %}
+        <div class="table-responsive">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "Operator" %}</th>
+                        <th>{% trans "Total Sales" %}</th>
+                        <th>{% trans "Transactions" %}</th>
+                        <th>{% trans "Average" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for op in operators %}
+                    <tr>
+                        <td><strong>{{ op.operator__first_name }} {{ op.operator__last_name }}</strong></td>
+                        <td>{{ op.total|floatformat:2 }} €</td>
+                        <td>{{ op.count }}</td>
+                        <td>{{ op.total|add:0|div:op.count|floatformat:2 }} €</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">{% trans "No operator data available." %}</p>
+        {% endif %}
+    </div>
+
+    <!-- Register Activity -->
+    <div class="report-section">
+        <h3 class="report-subtitle">{% trans "Register Activity" %}</h3>
+        {% if registers %}
+        <div class="table-responsive">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "Register" %}</th>
+                        <th>{% trans "Total Sales" %}</th>
+                        <th>{% trans "Transactions" %}</th>
+                        <th>{% trans "Average" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for reg in registers %}
+                    <tr>
+                        <td><strong>{{ reg.register__name }}</strong></td>
+                        <td>{{ reg.total|floatformat:2 }} €</td>
+                        <td>{{ reg.count }}</td>
+                        <td>{{ reg.total|add:0|div:reg.count|floatformat:2 }} €</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">{% trans "No register data available." %}</p>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .report-controls {
+        background: white;
+        border: 1px solid #e1e4e8;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+    }
+
+    .date-range-form {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .date-range-form .form-group {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .date-range-form label {
+        margin: 0;
+        font-weight: 600;
+    }
+
+    .date-range-form select {
+        min-width: 200px;
+    }
+
+    .report-period {
+        margin: 0;
+        color: #666;
+        font-size: 0.875rem;
+    }
+
+    .report-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .report-card {
+        background: white;
+        border: 1px solid #e1e4e8;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .report-card h4 {
+        margin: 0 0 1rem 0;
+        font-size: 0.875rem;
+        color: #666;
+        font-weight: 500;
+    }
+
+    .report-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+
+    .report-meta {
+        margin: 0;
+        font-size: 0.875rem;
+        color: #999;
+    }
+
+    .report-section {
+        background: white;
+        border: 1px solid #e1e4e8;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .report-subtitle {
+        margin: 0 0 1rem 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    .text-muted {
+        color: #999;
+        font-size: 0.875rem;
+    }
+</style>
+{% endblock %}

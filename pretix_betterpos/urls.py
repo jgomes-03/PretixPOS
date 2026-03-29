@@ -1,17 +1,69 @@
-from django.urls import include, path
+from django.urls import include, re_path
 
 from .api.urls import api_urlpatterns
-from .views.control import RegisterListView, SessionMonitorView
 from .views.pos import POSIndexView
 
-
-event_patterns = [
-    path('betterpos/', POSIndexView.as_view(), name='pos.index'),
-    path('betterpos/control/registers/', RegisterListView.as_view(), name='control.registers'),
-    path('betterpos/control/sessions/', SessionMonitorView.as_view(), name='control.sessions'),
-    path('betterpos/api/', include((api_urlpatterns, 'api'))),
+urlpatterns = [
+    re_path(
+        r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/betterpos/api/',
+        include((api_urlpatterns, 'api')),
+    ),
+    re_path(
+        r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/betterpos/admin/?$',
+        POSIndexView.as_view(),
+        name='dashboard',
+    ),
+    re_path(
+        r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/betterpos/admin/dashboard/?$',
+        POSIndexView.as_view(),
+        name='dashboard.explicit',
+    ),
+    re_path(
+        r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/betterpos/admin/registers/?$',
+        POSIndexView.as_view(),
+        name='registers',
+    ),
+    re_path(
+        r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/betterpos/admin/registers/create/?$',
+        POSIndexView.as_view(),
+        name='register.create',
+    ),
+    re_path(
+        r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/betterpos/admin/registers/(?P<pk>\d+)/edit/?$',
+        POSIndexView.as_view(),
+        name='register.edit',
+    ),
+    re_path(
+        r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/betterpos/admin/registers/(?P<pk>\d+)/delete/?$',
+        POSIndexView.as_view(),
+        name='register.delete',
+    ),
+    re_path(
+        r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/betterpos/admin/sessions/?$',
+        POSIndexView.as_view(),
+        name='sessions',
+    ),
+    re_path(
+        r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/betterpos/admin/transactions/?$',
+        POSIndexView.as_view(),
+        name='transactions',
+    ),
+    re_path(
+        r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/betterpos/admin/audit/?$',
+        POSIndexView.as_view(),
+        name='audit',
+    ),
+    re_path(
+        r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/betterpos/admin/reports/?$',
+        POSIndexView.as_view(),
+        name='reports',
+    ),
+    re_path(
+        r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/betterpos(?:/.*)?$',
+        POSIndexView.as_view(),
+        name='pos.index',
+    ),
 ]
 
+event_patterns = []
 organizer_patterns = []
-
-urlpatterns = []

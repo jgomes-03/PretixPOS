@@ -1,0 +1,3 @@
+"""
+BetterPOS plugin test suite.
+"""

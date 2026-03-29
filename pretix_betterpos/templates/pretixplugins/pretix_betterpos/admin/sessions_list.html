@@ -1,0 +1,318 @@
+{% extends "pretixplugins/pretix_betterpos/admin/base.html" %}
+{% load i18n %}
+
+{% block admin_content %}
+<div class="admin-section">
+    <div class="section-header">
+        <h3 class="section-title">{% trans "Cash Sessions" %}</h3>
+    </div>
+
+    {% if sessions %}
+    <div class="table-responsive">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>{% trans "Register" %}</th>
+                    <th>{% trans "Opened by" %}</th>
+                    <th>{% trans "Opened" %}</th>
+                    <th>{% trans "Closed by" %}</th>
+                    <th>{% trans "Closed" %}</th>
+                    <th>{% trans "Opening Float" %}</th>
+                    <th>{% trans "Expected" %}</th>
+                    <th>{% trans "Counted" %}</th>
+                    <th>{% trans "Difference" %}</th>
+                    <th>{% trans "Status" %}</th>
+                    <th>{% trans "Actions" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for session in sessions %}
+                <tr class="{% if session.difference != 0 %}row-warning{% endif %}">
+                    <td><strong>{{ session.register.name }}</strong></td>
+                    <td>{{ session.opened_by.first_name }}</td>
+                    <td>{{ session.opened_at|date:"SHORT_DATETIME_FORMAT" }}</td>
+                    <td>{{ session.closed_by.first_name|default:"-" }}</td>
+                    <td>
+                        {% if session.closed_at %}
+                            {{ session.closed_at|date:"SHORT_DATETIME_FORMAT" }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>{{ session.opening_float|floatformat:2 }} €</td>
+                    <td>{{ session.expected_cash|floatformat:2 }} €</td>
+                    <td>
+                        {% if session.counted_cash %}
+                            {{ session.counted_cash|floatformat:2 }} €
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if session.difference == 0 %}
+                            <span class="badge badge-success" title="Cash count matches expected amount">✓ {% trans "Balanced" %}</span>
+                        {% elif session.difference > 0 %}
+                            <span class="badge badge-warning" title="Counted cash exceeds expected amount">+{{ session.difference|floatformat:2 }} €</span>
+                        {% else %}
+                            <span class="badge badge-danger" title="Counted cash is short of expected amount">{{ session.difference|floatformat:2 }} €</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if session.status == "open" %}
+                            <span class="badge badge-success" title="Session is currently accepting transactions">🟢 {% trans "Open" %}</span>
+                        {% elif session.status == "closed" %}
+                            <span class="badge badge-secondary" title="Session has been closed and finalized">⚪ {% trans "Closed" %}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if session.status == "open" and user_permissions.can_reconcile %}
+                            <button
+                                type="button"
+                                class="btn-link js-open-reconcile"
+                                data-session-id="{{ session.id }}"
+                                data-register-name="{{ session.register.name }}"
+                                data-expected-cash="{{ session.expected_cash }}"
+                            >
+                                💰 {% trans "Reconcile" %}
+                            </button>
+                        {% elif session.status == "open" %}
+                            <span class="btn-link btn-link-disabled" title="{% trans 'You do not have permission to reconcile sessions' %}">💰 {% trans "Reconcile" %}</span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="btn-pagination">« {% trans "First" %}</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="btn-pagination">‹ {% trans "Previous" %}</a>
+        {% endif %}
+
+        <span class="pagination-info">
+            {% trans "Page" %} {{ page_obj.number }} {% trans "of" %} {{ page_obj.paginator.num_pages }}
+        </span>
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="btn-pagination">{% trans "Next" %} ›</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="btn-pagination">{% trans "Last" %} »</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">📊</div>
+        <h4>{% trans "No Cash Sessions" %}</h4>
+        <p>{% trans "Cash sessions group transactions and manage cash flow." %}</p>
+        <p class="empty-state-hint">
+            {% trans "To open your first session:" %}
+            <ol style="display: inline-block; text-align: left; margin: 0;">
+                <li>{% trans "Create a register from" %} <a href="{% url 'plugins:pretix_betterpos:registers' organizer=event.organizer.slug event=event.slug %}">{% trans "Registers" %}</a></li>
+                <li>{% trans "From the POS, select that register and open a session" %}</li>
+            </ol>
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+<div id="reconcile-modal" class="reconcile-modal" style="display: none;">
+    <div class="reconcile-modal-content">
+        <div class="reconcile-modal-header">
+            <h4>{% trans "Reconcile Cash Session" %}</h4>
+            <button type="button" class="btn-link" id="reconcile-close" aria-label="{% trans 'Close' %}">✖</button>
+        </div>
+        <div class="reconcile-modal-body">
+            <div class="form-group">
+                <label>{% trans "Session" %}</label>
+                <input type="text" class="form-control" id="reconcile-session-label" disabled>
+            </div>
+            <div class="form-group">
+                <label>{% trans "Expected Cash" %}</label>
+                <input type="text" class="form-control" id="reconcile-expected" disabled>
+            </div>
+            <div class="form-group">
+                <label for="reconcile-counted">{% trans "Counted Cash" %}</label>
+                <input type="number" class="form-control" id="reconcile-counted" step="0.01" min="0" required>
+            </div>
+            <div class="form-group">
+                <label for="reconcile-notes">{% trans "Notes" %}</label>
+                <textarea class="form-control" id="reconcile-notes" rows="3"></textarea>
+            </div>
+            <div id="reconcile-variance" class="reconcile-variance" style="display: none;"></div>
+            <div id="reconcile-error" class="alert alert-danger" style="display: none;"></div>
+        </div>
+        <div class="reconcile-modal-footer">
+            <button type="button" class="btn btn-secondary" id="reconcile-cancel">{% trans "Cancel" %}</button>
+            <button type="button" class="btn btn-primary" id="reconcile-submit">{% trans "Confirm Reconciliation" %}</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.reconcile-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.reconcile-modal-content {
+    width: min(560px, 92vw);
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+}
+
+.reconcile-modal-header,
+.reconcile-modal-footer {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.reconcile-modal-footer {
+    border-bottom: none;
+    border-top: 1px solid var(--border);
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.reconcile-modal-header h4 {
+    margin: 0;
+}
+
+.reconcile-modal-body {
+    padding: 1rem 1.25rem;
+}
+
+.reconcile-variance {
+    margin-top: 0.75rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 4px;
+    font-weight: 600;
+    background: #f4f6f8;
+}
+</style>
+
+<script>
+(function () {
+    const modal = document.getElementById('reconcile-modal');
+    const openButtons = document.querySelectorAll('.js-open-reconcile');
+    const closeButton = document.getElementById('reconcile-close');
+    const cancelButton = document.getElementById('reconcile-cancel');
+    const submitButton = document.getElementById('reconcile-submit');
+    const countedInput = document.getElementById('reconcile-counted');
+    const notesInput = document.getElementById('reconcile-notes');
+    const expectedInput = document.getElementById('reconcile-expected');
+    const sessionLabelInput = document.getElementById('reconcile-session-label');
+    const varianceBox = document.getElementById('reconcile-variance');
+    const errorBox = document.getElementById('reconcile-error');
+
+    let currentSessionId = null;
+    let expectedCash = 0;
+
+    function getCookie(name) {
+        const cookieValue = document.cookie
+            .split('; ')
+            .find((row) => row.startsWith(name + '='));
+        return cookieValue ? decodeURIComponent(cookieValue.split('=')[1]) : '';
+    }
+
+    function hideModal() {
+        modal.style.display = 'none';
+        errorBox.style.display = 'none';
+        errorBox.textContent = '';
+        varianceBox.style.display = 'none';
+        varianceBox.textContent = '';
+        countedInput.value = '';
+        notesInput.value = '';
+    }
+
+    function showVariance() {
+        const counted = Number(countedInput.value || 0);
+        const diff = counted - expectedCash;
+        varianceBox.style.display = 'block';
+        varianceBox.textContent = '{% trans "Difference" %}: ' + diff.toFixed(2) + ' EUR';
+        if (diff === 0) {
+            varianceBox.style.color = '#1b5e20';
+        } else if (diff > 0) {
+            varianceBox.style.color = '#0d47a1';
+        } else {
+            varianceBox.style.color = '#b71c1c';
+        }
+    }
+
+    openButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            currentSessionId = button.dataset.sessionId;
+            expectedCash = Number(button.dataset.expectedCash || 0);
+            sessionLabelInput.value = `${button.dataset.registerName} (#${currentSessionId})`;
+            expectedInput.value = `${expectedCash.toFixed(2)} EUR`;
+            modal.style.display = 'flex';
+            countedInput.focus();
+        });
+    });
+
+    closeButton.addEventListener('click', hideModal);
+    cancelButton.addEventListener('click', hideModal);
+    countedInput.addEventListener('input', showVariance);
+
+    submitButton.addEventListener('click', async () => {
+        const countedCash = countedInput.value;
+        if (countedCash === '') {
+            errorBox.style.display = 'block';
+            errorBox.textContent = '{% trans "Counted cash is required." %}';
+            return;
+        }
+
+        submitButton.disabled = true;
+        errorBox.style.display = 'none';
+
+        try {
+            const response = await fetch(
+                `/api/organizers/{{ event.organizer.slug }}/events/{{ event.slug }}/betterpos/session/${currentSessionId}/reconcile/`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken'),
+                    },
+                    body: JSON.stringify({
+                        counted_cash: countedCash,
+                        close_notes: notesInput.value || '',
+                    }),
+                }
+            );
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || '{% trans "Unable to reconcile session." %}');
+            }
+
+            window.location.reload();
+        } catch (error) {
+            errorBox.style.display = 'block';
+            errorBox.textContent = error.message;
+            submitButton.disabled = false;
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && modal.style.display !== 'none') {
+            hideModal();
+        }
+    });
+})();
+</script>
+{% endblock %}

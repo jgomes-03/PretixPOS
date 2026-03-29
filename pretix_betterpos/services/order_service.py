@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Sum
 from pretix.base.models import Order, OrderPosition
 
 from pretix_betterpos.models import BetterposTransaction
@@ -9,29 +10,116 @@ from .base import ValidationError
 
 class OrderOrchestrationService:
     @staticmethod
+    def _resolve_order_email(user):
+        user_id = getattr(user, 'pk', None) or 'unknown'
+        email = (getattr(user, 'email', '') or '').strip().lower()
+
+        if email and '@' in email:
+            local, domain = email.split('@', 1)
+            safe_local = ''.join(ch if ch.isalnum() or ch in '._+-' else '-' for ch in local).strip('-')
+            safe_domain = ''.join(ch if ch.isalnum() or ch in '.-' else '-' for ch in domain).strip('-')
+            safe_local = safe_local or 'user'
+            safe_domain = safe_domain or 'betterpos.invalid'
+            return f'operator-{user_id}.{safe_local}@{safe_domain}'
+
+        username = (getattr(user, 'username', '') or '').strip().lower()
+        safe_username = ''.join(ch if ch.isalnum() or ch in '._-' else '-' for ch in username).strip('-')
+        safe_username = safe_username or 'user'
+        return f'operator-{user_id}.{safe_username}@betterpos.invalid'
+
+    @staticmethod
+    def _resolve_sales_channel(event):
+        channel = event.organizer.sales_channels.filter(identifier='betterpos').first()
+        if channel:
+            return channel
+
+        channel = event.organizer.sales_channels.filter(identifier='web').first()
+        if channel:
+            return channel
+
+        channel = event.organizer.sales_channels.first()
+        if channel:
+            return channel
+
+        # Last-resort bootstrap for organizers without any configured sales channel.
+        return event.organizer.sales_channels.create(
+            label='BetterPOS',
+            identifier='betterpos',
+            type='api',
+            position=0,
+            configuration={},
+        )
+
+    @staticmethod
     @transaction.atomic
     def create_order_from_cart(*, event, user, register, session, cart_totals, locale='en'):
         if not session or session.status != session.STATUS_OPEN:
             raise ValidationError('An open cash session is required before selling')
 
+        # Reconcile stale async states (e.g. order manually marked paid in Pretix backend).
+        stale_pending = BetterposTransaction.objects.filter(
+            event=event,
+            register=register,
+            session=session,
+            state=BetterposTransaction.STATE_PENDING,
+        ).select_related('order')
+
+        for tx in stale_pending:
+            if tx.order.status == Order.STATUS_PAID:
+                tx.state = BetterposTransaction.STATE_PAID
+                tx.save(update_fields=['state', 'updated_at'])
+            elif tx.order.status in (Order.STATUS_EXPIRED, Order.STATUS_CANCELED):
+                tx.state = BetterposTransaction.STATE_EXPIRED
+                tx.save(update_fields=['state', 'updated_at'])
+
+        pending_payments = BetterposTransaction.objects.filter(
+            event=event,
+            register=register,
+            session=session,
+            state=BetterposTransaction.STATE_PENDING,
+            order__status=Order.STATUS_PENDING,
+        ).select_related('order').order_by('-created_at')
+        if pending_payments.exists():
+            refs = []
+            for tx in pending_payments[:10]:
+                code = getattr(tx.order, 'code', None)
+                if code:
+                    refs.append(f'order_id={tx.order_id} (code={code})')
+                else:
+                    refs.append(f'order_id={tx.order_id}')
+
+            details = ', '.join(refs)
+            raise ValidationError(
+                f'Existem pagamentos EuPago pendentes: {details}. Aguarde confirmacao antes de prosseguir.'
+            )
+
+        sales_channel = OrderOrchestrationService._resolve_sales_channel(event)
+
         order = Order.objects.create(
             event=event,
             status=Order.STATUS_PENDING,
             locale=locale,
-            sales_channel='betterpos',
+            email=OrderOrchestrationService._resolve_order_email(user),
+            total=cart_totals.get('total', '0.00'),
+            sales_channel=sales_channel,
         )
 
-        for line in cart_totals['lines']:
-            OrderPosition.objects.create(
+        created_positions = []
+        for idx, line in enumerate(cart_totals['lines'], start=1):
+            pos = OrderPosition.objects.create(
                 order=order,
                 item_id=line['item_id'],
                 variation_id=line['variation_id'],
                 price=line['unit_price'],
-                attendee_name='POS Customer',
+                positionid=idx,
             )
+            created_positions.append(pos)
 
-        order.recalculate_total()
-        order.save()
+        order.total = (order.positions.aggregate(sum=Sum('price'))['sum'] or 0) + (
+            order.fees.aggregate(sum=Sum('value'))['sum'] or 0
+        )
+        order.save(update_fields=['total'])
+        order.create_transactions(is_new=True, positions=created_positions, fees=[])
 
         transaction_row = BetterposTransaction.objects.create(
             event=event,

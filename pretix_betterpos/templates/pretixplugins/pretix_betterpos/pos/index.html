@@ -4,30 +4,41 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="csrf-token" content="{{ csrf_token }}" />
     <title>BetterPOS</title>
     <link rel="stylesheet" href="{% static 'pretixplugins/pretix_betterpos/pos.css' %}">
+    <link rel="stylesheet" href="{% static 'pretixplugins/pretix_betterpos/admin.css' %}">
 </head>
 <body>
-    <main class="betterpos-layout">
-        <section class="panel panel-catalog">
-            <h1>{% trans "BetterPOS" %}</h1>
-            <p>{% trans "Touch-first POS interface." %}</p>
-            <div id="catalog-root"></div>
-        </section>
-        <section class="panel panel-cart">
-            <h2>{% trans "Cart" %}</h2>
-            <div id="cart-root"></div>
-            <button id="btn-create-order" type="button">{% trans "Create order" %}</button>
-            <button id="btn-cash" type="button">{% trans "Pay cash" %}</button>
-            <button id="btn-eupago" type="button">{% trans "Pay with euPago" %}</button>
-        </section>
-    </main>
+  <div
+    id="betterpos-app"
+    data-organizer="{{ event.organizer.slug }}"
+    data-event="{{ event.slug }}"
+    data-base-path="{{ base_path }}"
+    data-api-base="{{ api_base }}"
+    data-csrf-token="{{ csrf_token }}"
+    data-can-manage-registers="{{ can_manage_registers|yesno:'true,false' }}"
+    data-can-view-audit="{{ can_view_audit|yesno:'true,false' }}"
+    data-can-session-control="{{ can_session_control|yesno:'true,false' }}"
+    data-can-sell="{{ can_sell|yesno:'true,false' }}"
+  ></div>
+
     <script>
-        window.BETTERPOS_CONTEXT = {
-            organizer: '{{ event.organizer.slug }}',
-            event: '{{ event.slug }}'
-        };
+      window.BETTERPOS = {
+        organizer: '{{ event.organizer.slug }}',
+        event: '{{ event.slug }}',
+        basePath: '{{ base_path }}',
+        apiBase: '{{ api_base }}',
+        csrfToken: '{{ csrf_token }}',
+        permissions: {
+          canManageRegisters: {{ can_manage_registers|yesno:'true,false' }},
+          canViewAudit: {{ can_view_audit|yesno:'true,false' }},
+          canSessionControl: {{ can_session_control|yesno:'true,false' }},
+          canSell: {{ can_sell|yesno:'true,false' }}
+        }
+      };
     </script>
-    <script src="{% static 'pretixplugins/pretix_betterpos/pos.js' %}"></script>
+
+    <script defer src="{% static 'pretixplugins/pretix_betterpos/dist/betterpos-app.js' %}"></script>
 </body>
 </html>

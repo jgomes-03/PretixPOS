@@ -28,6 +28,13 @@ setup(
     install_requires=[],
     packages=find_packages(exclude=['tests', 'tests.*']),
     include_package_data=True,
+    package_data={
+        'pretix_betterpos': [
+            'templates/**/*',
+            'static/**/*',
+            'locale/**/*',
+        ],
+    },
     entry_points='''
 [pretix.plugin]
 pretix_betterpos=pretix_betterpos:PluginApp.PretixPluginMeta
