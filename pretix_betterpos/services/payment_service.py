@@ -250,7 +250,7 @@ class PaymentService:
                 'mbway payment failed. please try again',
                 'mbway payment failed. please try again later',
             )
-            exc_message_is_generic = exc_message.lower() in generic_markers
+            exc_message_is_generic = exc_message.lower() in generic_markers if exc_message else False
 
             if details and exc_message and exc_message not in details:
                 if not exc_message_is_generic:
