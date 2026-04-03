@@ -126,12 +126,13 @@ export function createApi(config: BetterPOSConfig) {
       register_id: number;
       lines: Array<{ item_id: number; quantity: number }>;
       idempotency_key?: string;
+      phone?: string;
     }) =>
       jsonFetch<{ order_code: string; transaction: Transaction }>(`${config.apiBase}/order/create/`, {
         method: 'POST',
         body: JSON.stringify(payload),
       }, csrfHint),
-    payCash: (payload: { transaction_id: number }) =>
+    payCash: (payload: { transaction_id: number; phone?: string }) =>
       jsonFetch<{ payment_id: number; transaction: Transaction }>(`${config.apiBase}/payment/cash/`, {
         method: 'POST',
         body: JSON.stringify(payload),

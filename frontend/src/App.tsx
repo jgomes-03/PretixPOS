@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createApi } from './api';
 import type {
 	AuditRow,
@@ -16,10 +16,238 @@ interface AppProps {
 	config: BetterPOSConfig;
 }
 
+type UILang = 'pt' | 'en';
+
+const uiText: Record<UILang, Record<string, string>> = {
+	pt: {
+		brandTitle: 'NET BetterPOS',
+		brandSubtitle: 'NET-ISCTE cashless and cash desk',
+		navPos: 'Frente de Caixa',
+		navAdmin: 'Gestao',
+		langToggle: 'EN',
+		loading: 'a carregar...',
+		paymentPending: 'pagamento pendente',
+		registerLabel: 'Caixa',
+		registerNone: 'Nenhuma selecionada',
+		selectRegister: 'Selecionar caixa',
+		openSession: 'Abrir sessao',
+		closeSession: 'Fechar sessao',
+		openingFloatPrompt: 'Fundo de abertura',
+		countedCashPrompt: 'Valor contado em caixa',
+		catalog: 'Catalogo',
+		add: 'Adicionar',
+		cart: 'Carrinho',
+		emptyCart: 'O carrinho esta vazio',
+		totalToPay: 'Total a pagar',
+		payCash: 'Pagar em Dinheiro',
+		payEuPago: 'Pagar com EuPago',
+		clearCart: 'Limpar Carrinho',
+		openSessionToSell: 'Abra uma sessao para comecar a vender.',
+		phonePrompt: 'Numero de telefone (ex: 9XXXXXXXX)',
+		phoneRequired: 'Numero de telefone e obrigatorio.',
+		eupagoStarted: 'EuPago iniciado (pagamento #%id%). Aguarde confirmacao para continuar.',
+		eupagoConfirmed: 'Pagamento EuPago confirmado e marcado como pago.',
+		eupagoEndedState: 'Pagamento EuPago terminou com estado: %state%.',
+		cashSuccess: 'Pagamento em dinheiro concluido com sucesso.',
+		timeoutHint: 'Se o estado ficar pendente por mais de 5 minutos, a venda e cancelada automaticamente.',
+		admin: 'Gestao',
+		dashboard: 'Painel',
+		registers: 'Caixas',
+		sessions: 'Sessoes',
+		transactions: 'Transacoes',
+		audit: 'Auditoria',
+		reports: 'Relatorios',
+		create: 'Criar',
+		save: 'Guardar',
+		cancel: 'Cancelar',
+		name: 'Nome',
+		code: 'Codigo',
+		actions: 'Acoes',
+		edit: 'Editar',
+		deactivate: 'Desativar',
+		disableRegisterConfirm: 'Desativar caixa %name%?',
+		renameRegisterPrompt: 'Nome da caixa',
+		unknownRoute: 'Rota de gestao desconhecida',
+		accessDenied: 'Acesso negado',
+		accessDeniedBody: 'Nao tem permissao para aceder a area de gestao.',
+		salesToday: 'Vendas de hoje',
+		openSessions: 'Sessoes abertas',
+		recentTransactions: 'Transacoes recentes',
+		activeRegistersNow: 'Caixas ativas neste momento',
+		latestLoaded: 'Ultimas 200 carregadas',
+		totalTransactions: 'transacoes',
+		periodDays: 'Periodo (dias)',
+		totalSales: 'Total de vendas',
+		transactionsCount: 'Transacoes',
+		loadingDots: 'A carregar...',
+		search: 'Pesquisar',
+		searchPlaceholder: 'Pesquisar em %title%',
+		compact: 'Compacto',
+		comfortable: 'Confortavel',
+		results: '%count% resultados',
+		noResults: 'Sem resultados para o filtro atual.',
+		status: 'Estado',
+		order: 'Pedido',
+		amount: 'Valor',
+		channel: 'Canal',
+		operator: 'Operador',
+		created: 'Criado',
+		opened: 'Abertura',
+		difference: 'Diferenca',
+		actor: 'Ator',
+		action: 'Acao',
+		register: 'Caixa',
+		active: 'Ativo',
+		inactive: 'Inativo',
+		statePaid: 'Pago',
+		statePending: 'Pendente',
+		stateFailed: 'Falhou',
+		stateExpired: 'Expirado',
+		stateCancelled: 'Cancelado',
+		stateOpen: 'Aberto',
+		stateClosed: 'Fechado',
+		stateRefund: 'Reembolso',
+	},
+	en: {
+		brandTitle: 'NET BetterPOS',
+		brandSubtitle: 'NET-ISCTE cashless and cash desk',
+		navPos: 'Checkout',
+		navAdmin: 'Management',
+		langToggle: 'PT',
+		loading: 'loading...',
+		paymentPending: 'payment pending',
+		registerLabel: 'Register',
+		registerNone: 'None selected',
+		selectRegister: 'Select register',
+		openSession: 'Open session',
+		closeSession: 'Close session',
+		openingFloatPrompt: 'Opening float',
+		countedCashPrompt: 'Counted cash amount',
+		catalog: 'Catalog',
+		add: 'Add',
+		cart: 'Cart',
+		emptyCart: 'Your cart is empty',
+		totalToPay: 'Total to pay',
+		payCash: 'Pay with Cash',
+		payEuPago: 'Pay with EuPago',
+		clearCart: 'Clear Cart',
+		openSessionToSell: 'Open a session to start selling.',
+		phonePrompt: 'Phone number (example: 9XXXXXXXX)',
+		phoneRequired: 'Phone number is required.',
+		eupagoStarted: 'EuPago started (payment #%id%). Wait for confirmation to continue.',
+		eupagoConfirmed: 'EuPago payment confirmed and marked as paid.',
+		eupagoEndedState: 'EuPago payment ended with state: %state%.',
+		cashSuccess: 'Cash payment completed successfully.',
+		timeoutHint: 'If status stays pending for more than 5 minutes, the sale is canceled automatically.',
+		admin: 'Management',
+		dashboard: 'Dashboard',
+		registers: 'Registers',
+		sessions: 'Sessions',
+		transactions: 'Transactions',
+		audit: 'Audit',
+		reports: 'Reports',
+		create: 'Create',
+		save: 'Save',
+		cancel: 'Cancel',
+		name: 'Name',
+		code: 'Code',
+		actions: 'Actions',
+		edit: 'Edit',
+		deactivate: 'Deactivate',
+		disableRegisterConfirm: 'Deactivate register %name%?',
+		renameRegisterPrompt: 'Register name',
+		unknownRoute: 'Unknown management route',
+		accessDenied: 'Access denied',
+		accessDeniedBody: 'You do not have permission to access management.',
+		salesToday: 'Sales today',
+		openSessions: 'Open sessions',
+		recentTransactions: 'Recent transactions',
+		activeRegistersNow: 'Active registers at this moment',
+		latestLoaded: 'Latest 200 loaded',
+		totalTransactions: 'transactions',
+		periodDays: 'Period (days)',
+		totalSales: 'Total sales',
+		transactionsCount: 'Transactions',
+		loadingDots: 'Loading...',
+		search: 'Search',
+		searchPlaceholder: 'Search in %title%',
+		compact: 'Compact',
+		comfortable: 'Comfortable',
+		results: '%count% results',
+		noResults: 'No results for the current filter.',
+		status: 'Status',
+		order: 'Order',
+		amount: 'Amount',
+		channel: 'Channel',
+		operator: 'Operator',
+		created: 'Created',
+		opened: 'Opened',
+		difference: 'Difference',
+		actor: 'Actor',
+		action: 'Action',
+		register: 'Register',
+		active: 'Active',
+		inactive: 'Inactive',
+		statePaid: 'Paid',
+		statePending: 'Pending',
+		stateFailed: 'Failed',
+		stateExpired: 'Expired',
+		stateCancelled: 'Canceled',
+		stateOpen: 'Open',
+		stateClosed: 'Closed',
+		stateRefund: 'Refund',
+	},
+};
+
+function initialLang(): UILang {
+	if (typeof navigator !== 'undefined' && (navigator.language || '').toLowerCase().startsWith('pt')) {
+		return 'pt';
+	}
+	return 'en';
+}
+
 function toMoney(value: number | string): string {
 	const n = Number(value);
 	if (Number.isNaN(n)) return '0.00';
 	return n.toFixed(2);
+}
+
+function looksLikeDate(value: string): boolean {
+	return /^\d{4}-\d{2}-\d{2}T/.test(value) || /^\d{4}-\d{2}-\d{2}/.test(value);
+}
+
+function formatDateValue(value: string): string {
+	const dt = new Date(value);
+	if (Number.isNaN(dt.getTime())) return value;
+	return dt.toLocaleString();
+}
+
+function stateBadgeClass(rawValue: string): string {
+	const v = rawValue.toLowerCase();
+	if (v.includes('paid')) return 'status-badge status-paid';
+	if (v.includes('pending')) return 'status-badge status-pending';
+	if (v.includes('failed')) return 'status-badge status-failed';
+	if (v.includes('expired')) return 'status-badge status-expired';
+	if (v.includes('cancel')) return 'status-badge status-cancelled';
+	if (v.includes('refund')) return 'status-badge status-pending';
+	if (v.includes('open') || v.includes('active')) return 'status-badge status-paid';
+	if (v.includes('closed') || v.includes('inactive')) return 'status-badge status-failed';
+	return 'status-badge';
+}
+
+function translateStateLabel(rawValue: string, t: (key: string) => string): string {
+	const v = rawValue.toLowerCase();
+	if (v.includes('paid')) return t('statePaid');
+	if (v.includes('pending')) return t('statePending');
+	if (v.includes('failed')) return t('stateFailed');
+	if (v.includes('expired')) return t('stateExpired');
+	if (v.includes('cancel')) return t('stateCancelled');
+	if (v.includes('refund')) return t('stateRefund');
+	if (v.includes('open')) return t('stateOpen');
+	if (v.includes('closed')) return t('stateClosed');
+	if (v.includes('active')) return t('active');
+	if (v.includes('inactive')) return t('inactive');
+	return rawValue;
 }
 
 function pathFromLocation(basePath: string): string {
@@ -58,43 +286,91 @@ function Banner({ error }: { error: string }) {
 	return <div className="error-box">{error}</div>;
 }
 
+function Modal({
+	open,
+	title,
+	children,
+	onClose,
+}: {
+	open: boolean;
+	title: string;
+	children: ReactNode;
+	onClose: () => void;
+}) {
+	if (!open) return null;
+	return (
+		<div className="modal-backdrop" onClick={onClose}>
+			<div className="modal-card" onClick={(ev) => ev.stopPropagation()}>
+				<div className="modal-header">
+					<h4>{title}</h4>
+					<button type="button" className="btn-secondary modal-close-btn" onClick={onClose}>
+						x
+					</button>
+				</div>
+				<div className="modal-body">{children}</div>
+			</div>
+		</div>
+	);
+}
+
 function AppHeader({
 	canAdmin,
 	navigate,
+	route,
+	t,
+	onToggleLang,
 }: {
 	canAdmin: boolean;
 	navigate: (route: string) => void;
+	route: string;
+	t: (key: string, vars?: Record<string, string | number>) => string;
+	onToggleLang: () => void;
 }) {
+	const inAdmin = route.startsWith('/admin');
 	return (
 		<header className="betterpos-header">
-			<h1>BetterPOS</h1>
+			<div className="header-brand">
+				<h1>{t('brandTitle')}</h1>
+				<p>{t('brandSubtitle')}</p>
+			</div>
 			<nav className="header-nav">
 				<a
+					className={!inAdmin ? 'active' : ''}
 					href="#"
 					onClick={(ev) => {
 						ev.preventDefault();
 						navigate('/pos');
 					}}
 				>
-					Frente de Caixa
+					{t('navPos')}
 				</a>
 				{canAdmin ? (
 					<a
+						className={inAdmin ? 'active' : ''}
 						href="#"
 						onClick={(ev) => {
 							ev.preventDefault();
 							navigate('/admin/dashboard');
 						}}
 					>
-						Gestao
+						{t('navAdmin')}
 					</a>
 				) : null}
+				<button type="button" className="lang-toggle" onClick={onToggleLang}>
+					{t('langToggle')}
+				</button>
 			</nav>
 		</header>
 	);
 }
 
-function POSScreen({ config }: { config: BetterPOSConfig }) {
+function POSScreen({
+	config,
+	t,
+}: {
+	config: BetterPOSConfig;
+	t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
 	const api = useMemo(() => createApi(config), [config]);
 	const [registers, setRegisters] = useState<Register[]>([]);
 	const [selectedRegister, setSelectedRegister] = useState<Register | null>(null);
@@ -105,6 +381,13 @@ function POSScreen({ config }: { config: BetterPOSConfig }) {
 	const [pendingEuPagoTxId, setPendingEuPagoTxId] = useState<number | null>(null);
 	const [error, setError] = useState('');
 	const [notice, setNotice] = useState('');
+	const [openSessionModal, setOpenSessionModal] = useState(false);
+	const [openingFloat, setOpeningFloat] = useState('0.00');
+	const [closeSessionModal, setCloseSessionModal] = useState(false);
+	const [countedCash, setCountedCash] = useState('0.00');
+	const [phoneModal, setPhoneModal] = useState(false);
+	const [phoneInput, setPhoneInput] = useState('');
+	const [pendingPaymentChannel, setPendingPaymentChannel] = useState<'cash' | 'eupago' | null>(null);
 	const eupagoPollRef = useRef<number | null>(null);
 
 	const isPaymentPending = pendingEuPagoTxId !== null;
@@ -167,13 +450,17 @@ function POSScreen({ config }: { config: BetterPOSConfig }) {
 
 	function openSession() {
 		if (!selectedRegister) return;
-		const amount = window.prompt('Fundo de abertura', '0.00');
-		if (amount === null) return;
+		setOpeningFloat('0.00');
+		setOpenSessionModal(true);
+	}
+
+	function confirmOpenSession() {
+		if (!selectedRegister) return;
 		setLoading(true);
 		setError('');
 		setNotice('');
 		api
-			.sessionOpen({ register_id: selectedRegister.id, opening_float: amount })
+			.sessionOpen({ register_id: selectedRegister.id, opening_float: openingFloat })
 			.then((data) => {
 				setSession({
 					id: data.session_id,
@@ -187,25 +474,35 @@ function POSScreen({ config }: { config: BetterPOSConfig }) {
 				setCatalog(catalogData.items || []);
 			})
 			.catch((err: Error) => setError(err.message))
-			.finally(() => setLoading(false));
+			.finally(() => {
+				setLoading(false);
+				setOpenSessionModal(false);
+			});
 	}
 
 	function closeSession() {
 		if (!session) return;
-		const counted = window.prompt('Valor contado em caixa', '0.00');
-		if (counted === null) return;
+		setCountedCash('0.00');
+		setCloseSessionModal(true);
+	}
+
+	function confirmCloseSession() {
+		if (!session) return;
 		setLoading(true);
 		setError('');
 		setNotice('');
 		api
-			.sessionClose({ register_id: session.register_id, counted_cash: counted })
+			.sessionClose({ register_id: session.register_id, counted_cash: countedCash })
 			.then(() => {
 				setSession(null);
 				setCart([]);
 				setCatalog([]);
 			})
 			.catch((err: Error) => setError(err.message))
-			.finally(() => setLoading(false));
+			.finally(() => {
+				setLoading(false);
+				setCloseSessionModal(false);
+			});
 	}
 
 	function addToCart(item: CatalogItem) {
@@ -236,9 +533,9 @@ function POSScreen({ config }: { config: BetterPOSConfig }) {
 		setCart([]);
 	}
 
-	async function createOrderTransaction(): Promise<Transaction> {
+	async function createOrderTransaction(phone: string): Promise<Transaction> {
 		if (!session) {
-			throw new Error('Abra uma sessao primeiro');
+			throw new Error(t('openSessionToSell'));
 		}
 		const lines = cart.map((line) => ({ item_id: line.item_id, quantity: line.qty }));
 		const idempotency = `${Date.now()}-${session.register_id}-${cart.length}`;
@@ -246,20 +543,27 @@ function POSScreen({ config }: { config: BetterPOSConfig }) {
 			register_id: session.register_id,
 			lines,
 			idempotency_key: idempotency,
+			phone,
 		});
 		return created.transaction;
 	}
 
-	async function payCash() {
+	function askPhoneFor(channel: 'cash' | 'eupago') {
+		setPhoneInput('');
+		setPendingPaymentChannel(channel);
+		setPhoneModal(true);
+	}
+
+	async function startCashPayment(phone: string) {
 		if (!session || !cart.length || isPaymentPending) return;
 		setLoading(true);
 		setError('');
 		setNotice('');
 		try {
-			const transaction = await createOrderTransaction();
-			await api.payCash({ transaction_id: transaction.id });
+			const transaction = await createOrderTransaction(phone);
+			await api.payCash({ transaction_id: transaction.id, phone });
 			setCart([]);
-			setNotice('Pagamento em dinheiro concluido com sucesso.');
+			setNotice(t('cashSuccess'));
 		} catch (err) {
 			setError((err as Error).message);
 		} finally {
@@ -267,21 +571,13 @@ function POSScreen({ config }: { config: BetterPOSConfig }) {
 		}
 	}
 
-	async function payEupago() {
+	async function startEupagoPayment(phone: string) {
 		if (!session || !cart.length || isPaymentPending) return;
-		const phoneInput = window.prompt('Numero MBWay (ex: 9XXXXXXXX)', '');
-		if (phoneInput === null) return;
-		const phone = phoneInput.replace(/\s+/g, '');
-		if (!phone) {
-			setError('Numero MBWay e obrigatorio.');
-			return;
-		}
-
 		setLoading(true);
 		setError('');
 		setNotice('');
 		try {
-			const transaction = await createOrderTransaction();
+			const transaction = await createOrderTransaction(phone);
 			const initiated = await api.payEupago({
 				transaction_id: transaction.id,
 				provider: 'eupago_mbway',
@@ -289,7 +585,7 @@ function POSScreen({ config }: { config: BetterPOSConfig }) {
 			});
 			setPendingEuPagoTxId(transaction.id);
 
-			setNotice(`EuPago iniciado (pagamento #${initiated.payment_id}). Aguarde confirmacao para continuar.`);
+			setNotice(t('eupagoStarted', { id: initiated.payment_id }));
 
 			if (eupagoPollRef.current !== null) {
 				window.clearInterval(eupagoPollRef.current);
@@ -305,14 +601,14 @@ function POSScreen({ config }: { config: BetterPOSConfig }) {
 						}
 						setPendingEuPagoTxId(null);
 						setCart([]);
-						setNotice('Pagamento EuPago confirmado e marcado como pago.');
+						setNotice(t('eupagoConfirmed'));
 					} else if (['failed', 'expired', 'cancelled_unpaid', 'refund_partial', 'refund_full'].includes(status.transaction.state)) {
 						if (eupagoPollRef.current !== null) {
 							window.clearInterval(eupagoPollRef.current);
 							eupagoPollRef.current = null;
 						}
 						setPendingEuPagoTxId(null);
-						setError(`Pagamento EuPago terminou com estado: ${status.transaction.state}.`);
+						setError(t('eupagoEndedState', { state: status.transaction.state }));
 					}
 				} catch (pollErr) {
 					if (eupagoPollRef.current !== null) {
@@ -330,6 +626,22 @@ function POSScreen({ config }: { config: BetterPOSConfig }) {
 		}
 	}
 
+	async function confirmPhoneAndPay() {
+		const normalizedPhone = phoneInput.replace(/\s+/g, '');
+		if (!normalizedPhone) {
+			setError(t('phoneRequired'));
+			return;
+		}
+		setPhoneModal(false);
+		if (pendingPaymentChannel === 'cash') {
+			await startCashPayment(normalizedPhone);
+		}
+		if (pendingPaymentChannel === 'eupago') {
+			await startEupagoPayment(normalizedPhone);
+		}
+		setPendingPaymentChannel(null);
+	}
+
 	const total = useMemo(
 		() => cart.reduce((acc, line) => acc + line.price * line.qty, 0),
 		[cart]
@@ -339,12 +651,15 @@ function POSScreen({ config }: { config: BetterPOSConfig }) {
 		<div className="view pos-view">
 			<Banner error={error} />
 			{notice ? <div className="alert alert-success">{notice}</div> : null}
+			{isPaymentPending ? <div className="alert alert-info">{t('timeoutHint')}</div> : null}
 
 			<div className="pos-header">
 				<div className="pos-session-info">
-					<strong>Caixa: </strong>
-					{selectedRegister ? selectedRegister.name : 'Nenhuma selecionada'} {loading ? '(a carregar...)' : ''}
-					{isPaymentPending ? ' (pagamento pendente)' : ''}
+					<span className="session-chip">{selectedRegister ? selectedRegister.code : '--'}</span>
+					<div className="session-meta">
+						<strong>{t('registerLabel')}: {selectedRegister ? selectedRegister.name : t('registerNone')}</strong>
+						<p className="muted">{loading ? t('loading') : isPaymentPending ? t('paymentPending') : ''}</p>
+					</div>
 				</div>
 				<div className="pos-controls">
 					<select
@@ -357,7 +672,7 @@ function POSScreen({ config }: { config: BetterPOSConfig }) {
 							setSelectedRegister(reg || null);
 						}}
 					>
-						<option value="">Selecionar caixa</option>
+						<option value="">{t('selectRegister')}</option>
 						{registers.map((reg) => (
 							<option key={reg.id} value={reg.id}>
 								{reg.name} ({reg.code})
@@ -366,11 +681,11 @@ function POSScreen({ config }: { config: BetterPOSConfig }) {
 					</select>{' '}
 					{session ? (
 						<button className="session-btn session-btn-close" onClick={closeSession} disabled={loading || isPaymentPending}>
-							Fechar sessao
+							{t('closeSession')}
 						</button>
 					) : (
 						<button className="session-btn session-btn-open" onClick={openSession} disabled={!selectedRegister || loading || isPaymentPending}>
-							Abrir sessao
+							{t('openSession')}
 						</button>
 					)}
 				</div>
@@ -379,20 +694,26 @@ function POSScreen({ config }: { config: BetterPOSConfig }) {
 			{session ? (
 				<div className="pos-container">
 					<div className="pos-catalog">
-						<h3>Catalogo</h3>
+						<div className="pos-section-head">
+							<h3>{t('catalog')}</h3>
+							<span className="section-pill">{catalog.length}</span>
+						</div>
 						<div className="catalog-grid">
 							{catalog.map((item) => (
 								<div key={item.id} className="catalog-card">
 									<h4>{item.name}</h4>
 									<p className="price">{toMoney(item.price)} EUR</p>
-									<button onClick={() => addToCart(item)} disabled={isPaymentPending}>Adicionar</button>
+									<button onClick={() => addToCart(item)} disabled={isPaymentPending}>{t('add')}</button>
 								</div>
 							))}
 						</div>
 					</div>
 
 					<div className="pos-cart">
-						<h3>Carrinho</h3>
+						<div className="pos-section-head">
+							<h3>{t('cart')}</h3>
+							<span className="section-pill">{cart.length}</span>
+						</div>
 						<div className="cart-items">
 							{cart.length ? (
 								cart.map((line) => (
@@ -407,39 +728,77 @@ function POSScreen({ config }: { config: BetterPOSConfig }) {
 									</div>
 								))
 							) : (
-								<p className="muted">O carrinho esta vazio</p>
+								<p className="muted">{t('emptyCart')}</p>
 							)}
 						</div>
 
 						<div className="cart-summary">
-							<h4>Total a pagar: {toMoney(total)} EUR</h4>
+							<h4>{t('totalToPay')}: {toMoney(total)} EUR</h4>
+							<p>{cart.length}x</p>
 						</div>
 
-						<button className="pay-btn pay-btn-cash" onClick={payCash} disabled={loading || !cart.length || !config.permissions.canSell || isPaymentPending}>
-							Pagar em Dinheiro
+						<button className="pay-btn pay-btn-cash" onClick={() => askPhoneFor('cash')} disabled={loading || !cart.length || !config.permissions.canSell || isPaymentPending}>
+							{t('payCash')}
 						</button>
-						<button className="pay-btn pay-btn-eupago" onClick={payEupago} disabled={loading || !cart.length || !config.permissions.canSell || isPaymentPending}>
-							Pagar com EuPago
+						<button className="pay-btn pay-btn-eupago" onClick={() => askPhoneFor('eupago')} disabled={loading || !cart.length || !config.permissions.canSell || isPaymentPending}>
+							{t('payEuPago')}
 						</button>
 						<button className="pay-btn pay-btn-clear" onClick={clearCart} disabled={loading || !cart.length || isPaymentPending}>
-							Limpar Carrinho
+							{t('clearCart')}
 						</button>
 					</div>
 				</div>
 			) : (
-				<div className="view">
-					<p>Abra uma sessao para comecar a vender.</p>
+				<div className="view pos-empty-state">
+					<p>{t('openSessionToSell')}</p>
 				</div>
 			)}
+
+			<Modal open={openSessionModal} title={t('openSession')} onClose={() => setOpenSessionModal(false)}>
+				<label>{t('openingFloatPrompt')}</label>
+				<input value={openingFloat} onChange={(ev) => setOpeningFloat(ev.target.value)} />
+				<div className="modal-actions">
+					<button type="button" className="btn-secondary" onClick={() => setOpenSessionModal(false)}>{t('cancel')}</button>
+					<button type="button" onClick={confirmOpenSession} disabled={loading}>{t('openSession')}</button>
+				</div>
+			</Modal>
+
+			<Modal open={closeSessionModal} title={t('closeSession')} onClose={() => setCloseSessionModal(false)}>
+				<label>{t('countedCashPrompt')}</label>
+				<input value={countedCash} onChange={(ev) => setCountedCash(ev.target.value)} />
+				<div className="modal-actions">
+					<button type="button" className="btn-secondary" onClick={() => setCloseSessionModal(false)}>{t('cancel')}</button>
+					<button type="button" onClick={confirmCloseSession} disabled={loading}>{t('closeSession')}</button>
+				</div>
+			</Modal>
+
+			<Modal open={phoneModal} title={t('phonePrompt')} onClose={() => setPhoneModal(false)}>
+				<label>{t('phonePrompt')}</label>
+				<input value={phoneInput} onChange={(ev) => setPhoneInput(ev.target.value)} placeholder="9XXXXXXXX" />
+				<div className="modal-actions">
+					<button type="button" className="btn-secondary" onClick={() => setPhoneModal(false)}>{t('cancel')}</button>
+					<button type="button" onClick={confirmPhoneAndPay} disabled={loading}>{t('save')}</button>
+				</div>
+			</Modal>
 		</div>
 	);
 }
 
-function AdminRegisters({ config }: { config: BetterPOSConfig }) {
+function AdminRegisters({
+	config,
+	t,
+}: {
+	config: BetterPOSConfig;
+	t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
 	const api = useMemo(() => createApi(config), [config]);
 	const [rows, setRows] = useState<Register[]>([]);
 	const [name, setName] = useState('');
 	const [code, setCode] = useState('');
+	const [editingId, setEditingId] = useState<number | null>(null);
+	const [editingName, setEditingName] = useState('');
+	const [editingCode, setEditingCode] = useState('');
+	const [deactivatingRow, setDeactivatingRow] = useState<Register | null>(null);
 	const [error, setError] = useState('');
 
 	function load() {
@@ -468,45 +827,94 @@ function AdminRegisters({ config }: { config: BetterPOSConfig }) {
 	}
 
 	function rename(row: Register) {
-		const nextName = window.prompt('Nome da caixa', row.name);
-		if (nextName === null) return;
-		api
-			.registerUpdate(row.id, {
-				name: nextName,
-				code: row.code,
-				currency: row.currency,
-				is_active: true,
-			})
-			.then(load)
-			.catch((err: Error) => setError(err.message));
+		setEditingId(row.id);
+		setEditingName(row.name);
+		setEditingCode(row.code);
 	}
 
 	function deactivate(row: Register) {
-		if (!window.confirm(`Desativar caixa ${row.name}?`)) return;
+		setDeactivatingRow(row);
+	}
+
+	function confirmDeactivate() {
+		if (!deactivatingRow) return;
 		api
-			.registerDelete(row.id)
+			.registerDelete(deactivatingRow.id)
 			.then(load)
+			.catch((err: Error) => setError(err.message))
+			.finally(() => setDeactivatingRow(null));
+	}
+
+	function cancelEdit() {
+		setEditingId(null);
+		setEditingName('');
+		setEditingCode('');
+	}
+
+	function saveEdit() {
+		if (editingId === null || !editingName.trim() || !editingCode.trim()) return;
+		const row = rows.find((item) => item.id === editingId);
+		if (!row) return;
+		setError('');
+		api
+			.registerUpdate(editingId, {
+				name: editingName.trim(),
+				code: editingCode.trim(),
+				currency: row.currency,
+				is_active: row.is_active !== false,
+			})
+			.then(() => {
+				cancelEdit();
+				load();
+			})
 			.catch((err: Error) => setError(err.message));
 	}
 
 	return (
 		<div className="view">
 			<Banner error={error} />
-			<h3>Caixas</h3>
-			<div className="card">
-				<input value={name} onChange={(ev) => setName(ev.target.value)} placeholder="Nome" />{' '}
-				<input value={code} onChange={(ev) => setCode(ev.target.value)} placeholder="Codigo" />{' '}
+			<h3>{t('registers')}</h3>
+			<div className="card register-form-card">
+				<div className="register-form-header">
+					<h4>{t('create')}</h4>
+					<p className="muted">{t('registers')}</p>
+				</div>
+				<div className="register-form-grid">
+					<input value={name} onChange={(ev) => setName(ev.target.value)} placeholder={t('name')} />
+					<input value={code} onChange={(ev) => setCode(ev.target.value)} placeholder={t('code')} />
+				</div>
 				<button onClick={create} disabled={!config.permissions.canManageRegisters}>
-					Criar
+					{t('create')}
 				</button>
 			</div>
+			{editingId !== null ? (
+				<div className="card register-form-card register-editor-card">
+					<div className="register-form-header">
+						<h4>{t('edit')}</h4>
+						<p className="muted">{rows.find((row) => row.id === editingId)?.name || ''}</p>
+					</div>
+					<div className="register-form-grid">
+						<input value={editingName} onChange={(ev) => setEditingName(ev.target.value)} placeholder={t('name')} />
+						<input value={editingCode} onChange={(ev) => setEditingCode(ev.target.value)} placeholder={t('code')} />
+					</div>
+					<div className="register-form-actions">
+						<button onClick={saveEdit} disabled={!config.permissions.canManageRegisters}>
+							{t('save')}
+						</button>
+						<button type="button" className="btn-secondary" onClick={cancelEdit}>
+							{t('cancel')}
+						</button>
+					</div>
+				</div>
+			) : null}
 			<div className="card">
 				<table className="admin-table">
 					<thead>
 						<tr>
-							<th>Nome</th>
-							<th>Codigo</th>
-							<th>Acoes</th>
+							<th>{t('name')}</th>
+							<th>{t('code')}</th>
+							<th>{t('status')}</th>
+							<th>{t('actions')}</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -515,11 +923,16 @@ function AdminRegisters({ config }: { config: BetterPOSConfig }) {
 								<td>{row.name}</td>
 								<td>{row.code}</td>
 								<td>
+									<span className={`status-badge ${row.is_active === false ? 'status-failed' : 'status-paid'}`}>
+										{row.is_active === false ? t('inactive') : t('active')}
+									</span>
+								</td>
+								<td>
 									<button onClick={() => rename(row)} disabled={!config.permissions.canManageRegisters}>
-										Editar
+										{t('edit')}
 									</button>{' '}
 									<button onClick={() => deactivate(row)} disabled={!config.permissions.canManageRegisters}>
-										Desativar
+										{t('deactivate')}
 									</button>
 								</td>
 							</tr>
@@ -527,6 +940,18 @@ function AdminRegisters({ config }: { config: BetterPOSConfig }) {
 					</tbody>
 				</table>
 			</div>
+
+			<Modal
+				open={deactivatingRow !== null}
+				title={t('deactivate')}
+				onClose={() => setDeactivatingRow(null)}
+			>
+				<p>{deactivatingRow ? t('disableRegisterConfirm', { name: deactivatingRow.name }) : ''}</p>
+				<div className="modal-actions">
+					<button type="button" className="btn-secondary" onClick={() => setDeactivatingRow(null)}>{t('cancel')}</button>
+					<button type="button" onClick={confirmDeactivate}>{t('deactivate')}</button>
+				</div>
+			</Modal>
 		</div>
 	);
 }
@@ -536,18 +961,67 @@ function DataTableScreen({
 	rows,
 	columns,
 	error,
+	t,
 }: {
 	title: string;
 	rows: TableRow[];
 	columns: Array<{ key: string; label: string }>;
 	error: string;
+	t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
+	const [query, setQuery] = useState('');
+	const [compact, setCompact] = useState(false);
+
+	const filteredRows = useMemo(() => {
+		const q = query.trim().toLowerCase();
+		if (!q) return rows;
+		return rows.filter((row) =>
+			columns.some((col) => String(row[col.key] ?? '').toLowerCase().includes(q))
+		);
+	}, [rows, columns, query]);
+
+	const primaryColumn = columns[0];
+
+	function renderCellValue(row: TableRow, colKey: string): string | JSX.Element {
+		const raw = row[colKey];
+		const text = String(raw ?? '');
+
+		if (!text) return '';
+
+		if (colKey === 'state' || colKey === 'status') {
+			return <span className={stateBadgeClass(text)}>{translateStateLabel(text, (k) => t(k))}</span>;
+		}
+
+		if (colKey === 'created_at' || colKey === 'opened_at') {
+			return looksLikeDate(text) ? formatDateValue(text) : text;
+		}
+
+		if (looksLikeDate(text)) {
+			return formatDateValue(text);
+		}
+
+		return text;
+	}
+
 	return (
 		<div className="view">
 			<Banner error={error} />
 			<h3>{title}</h3>
 			<div className="card">
-				<table className="admin-table">
+				<div className="table-toolbar">
+					<label>{t('search')}</label>
+					<input
+						type="text"
+						value={query}
+						onChange={(ev) => setQuery(ev.target.value)}
+						placeholder={t('searchPlaceholder', { title })}
+					/>
+					<button type="button" className="table-density-btn" onClick={() => setCompact((old) => !old)}>
+						{compact ? t('comfortable') : t('compact')}
+					</button>
+					<span className="table-results">{t('results', { count: filteredRows.length })}</span>
+				</div>
+				<table className={`admin-table ${compact ? 'table-compact' : ''}`}>
 					<thead>
 						<tr>
 							{columns.map((col) => (
@@ -556,21 +1030,65 @@ function DataTableScreen({
 						</tr>
 					</thead>
 					<tbody>
-						{rows.map((row, idx) => (
+						{filteredRows.map((row, idx) => (
 							<tr key={String(row.id || idx)}>
 								{columns.map((col) => (
-									<td key={col.key}>{String(row[col.key] ?? '')}</td>
+									<td key={col.key}>{renderCellValue(row, col.key)}</td>
 								))}
 							</tr>
 						))}
+						{filteredRows.length === 0 ? (
+							<tr>
+								<td colSpan={columns.length} className="table-empty">{t('noResults')}</td>
+							</tr>
+						) : null}
 					</tbody>
 				</table>
+				<div className="table-cards">
+					{filteredRows.length ? (
+						filteredRows.map((row, idx) => (
+							<div key={String(row.id || idx)} className="table-card">
+								<div className="table-card-head">
+									<div>
+										<h4>{primaryColumn ? String(row[primaryColumn.key] ?? '') : title}</h4>
+										<p className="muted">{title}</p>
+									</div>
+									{row.state || row.status ? (
+										<span className={stateBadgeClass(String(row.state ?? row.status))}>
+											{translateStateLabel(String(row.state ?? row.status), (k) => t(k))}
+										</span>
+									) : null}
+								</div>
+								<dl className="table-card-fields">
+									{columns.slice(0, 5).map((col) => {
+										if (primaryColumn && col.key === primaryColumn.key) return null;
+										const value = renderCellValue(row, col.key);
+										return (
+											<div key={col.key}>
+												<dt>{col.label}</dt>
+												<dd>{value}</dd>
+											</div>
+										);
+									})}
+								</dl>
+							</div>
+						))
+					) : (
+						<div className="table-card table-card-empty">{t('noResults')}</div>
+					)}
+				</div>
 			</div>
 		</div>
 	);
 }
 
-function AdminDashboard({ config }: { config: BetterPOSConfig }) {
+function AdminDashboardWithText({
+	config,
+	t,
+}: {
+	config: BetterPOSConfig;
+	t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
 	const api = useMemo(() => createApi(config), [config]);
 	const [report, setReport] = useState<ReportSummary | null>(null);
 	const [sessions, setSessions] = useState<Session[]>([]);
@@ -579,10 +1097,10 @@ function AdminDashboard({ config }: { config: BetterPOSConfig }) {
 
 	useEffect(() => {
 		Promise.all([api.reportsSummary(1), api.sessionsList(), api.transactionsList()])
-			.then(([r, s, t]) => {
+			.then(([r, s, tData]) => {
 				setReport(r);
 				setSessions(s.sessions || []);
-				setTxs(t.transactions || []);
+				setTxs(tData.transactions || []);
 			})
 			.catch((err: Error) => setError(err.message));
 	}, [api]);
@@ -592,29 +1110,35 @@ function AdminDashboard({ config }: { config: BetterPOSConfig }) {
 	return (
 		<div className="view">
 			<Banner error={error} />
-			<h3>Painel</h3>
+			<h3>{t('dashboard')}</h3>
 			<div className="catalog-grid">
 				<div className="card">
-					<h4>Vendas de hoje</h4>
+					<h4>{t('salesToday')}</h4>
 					<p>{toMoney(report?.total_sales || 0)} EUR</p>
-					<p className="muted">{report?.total_count || 0} transacoes</p>
+					<p className="muted">{report?.total_count || 0} {t('totalTransactions')}</p>
 				</div>
 				<div className="card">
-					<h4>Sessoes abertas</h4>
+					<h4>{t('openSessions')}</h4>
 					<p>{openSessions}</p>
-					<p className="muted">Caixas ativas neste momento</p>
+					<p className="muted">{t('activeRegistersNow')}</p>
 				</div>
 				<div className="card">
-					<h4>Transacoes recentes</h4>
+					<h4>{t('recentTransactions')}</h4>
 					<p>{txs.length}</p>
-					<p className="muted">Ultimas 200 carregadas</p>
+					<p className="muted">{t('latestLoaded')}</p>
 				</div>
 			</div>
 		</div>
 	);
 }
 
-function AdminReports({ config }: { config: BetterPOSConfig }) {
+function AdminReports({
+	config,
+	t,
+}: {
+	config: BetterPOSConfig;
+	t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
 	const api = useMemo(() => createApi(config), [config]);
 	const [days, setDays] = useState(30);
 	const [report, setReport] = useState<ReportSummary | null>(null);
@@ -631,9 +1155,9 @@ function AdminReports({ config }: { config: BetterPOSConfig }) {
 	return (
 		<div className="view">
 			<Banner error={error} />
-			<h3>Relatorios</h3>
+			<h3>{t('reports')}</h3>
 			<div className="card">
-				<label>Periodo (dias): </label>
+				<label>{t('periodDays')}: </label>
 				<select value={days} onChange={(ev) => setDays(Number(ev.target.value))}>
 					<option value={7}>7</option>
 					<option value={30}>30</option>
@@ -642,8 +1166,8 @@ function AdminReports({ config }: { config: BetterPOSConfig }) {
 			</div>
 			{report ? (
 				<div className="card">
-					<p>Total de vendas: {toMoney(report.total_sales)} EUR</p>
-					<p>Transacoes: {report.total_count}</p>
+					<p>{t('totalSales')}: {toMoney(report.total_sales)} EUR</p>
+					<p>{t('transactionsCount')}: {report.total_count}</p>
 					<ul>
 						{(report.by_channel || []).map((ch) => (
 							<li key={ch.channel}>
@@ -653,13 +1177,21 @@ function AdminReports({ config }: { config: BetterPOSConfig }) {
 					</ul>
 				</div>
 			) : (
-				<p>A carregar...</p>
+				<p>{t('loadingDots')}</p>
 			)}
 		</div>
 	);
 }
 
-function AdminScreen({ route, config }: { route: string; config: BetterPOSConfig }) {
+function AdminScreen({
+	route,
+	config,
+	t,
+}: {
+	route: string;
+	config: BetterPOSConfig;
+	t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
 	const api = useMemo(() => createApi(config), [config]);
 	const [sessions, setSessions] = useState<Session[]>([]);
 	const [txs, setTxs] = useState<Transaction[]>([]);
@@ -688,23 +1220,24 @@ function AdminScreen({ route, config }: { route: string; config: BetterPOSConfig
 	}, [api, route]);
 
 	if (route.startsWith('/admin/dashboard')) {
-		return <AdminDashboard config={config} />;
+		return <AdminDashboardWithText config={config} t={t} />;
 	}
 	if (route.startsWith('/admin/registers')) {
-		return <AdminRegisters config={config} />;
+		return <AdminRegisters config={config} t={t} />;
 	}
 	if (route.startsWith('/admin/sessions')) {
 		return (
 			<DataTableScreen
-				title="Sessoes"
+				title={t('sessions')}
 				error={error}
+				t={t}
 				rows={sessions as unknown as TableRow[]}
 				columns={[
 					{ key: 'id', label: 'ID' },
-					{ key: 'register_name', label: 'Caixa' },
-					{ key: 'status', label: 'Estado' },
-					{ key: 'opened_at', label: 'Abertura' },
-					{ key: 'difference', label: 'Diferenca' },
+					{ key: 'register_name', label: t('register') },
+					{ key: 'status', label: t('status') },
+					{ key: 'opened_at', label: t('opened') },
+					{ key: 'difference', label: t('difference') },
 				]}
 			/>
 		);
@@ -712,16 +1245,17 @@ function AdminScreen({ route, config }: { route: string; config: BetterPOSConfig
 	if (route.startsWith('/admin/transactions')) {
 		return (
 			<DataTableScreen
-				title="Transacoes"
+				title={t('transactions')}
 				error={error}
+				t={t}
 				rows={txs as unknown as TableRow[]}
 				columns={[
-					{ key: 'order_code', label: 'Pedido' },
-					{ key: 'amount', label: 'Valor' },
-					{ key: 'channel', label: 'Canal' },
-					{ key: 'state', label: 'Estado' },
-					{ key: 'operator_name', label: 'Operador' },
-					{ key: 'created_at', label: 'Criado em' },
+					{ key: 'order_code', label: t('order') },
+					{ key: 'amount', label: t('amount') },
+					{ key: 'channel', label: t('channel') },
+					{ key: 'state', label: t('status') },
+					{ key: 'operator_name', label: t('operator') },
+					{ key: 'created_at', label: t('created') },
 				]}
 			/>
 		);
@@ -729,38 +1263,47 @@ function AdminScreen({ route, config }: { route: string; config: BetterPOSConfig
 	if (route.startsWith('/admin/audit')) {
 		return (
 			<DataTableScreen
-				title="Auditoria"
+				title={t('audit')}
 				error={error}
+				t={t}
 				rows={auditRows as unknown as TableRow[]}
 				columns={[
-					{ key: 'action_type', label: 'Acao' },
-					{ key: 'actor_id', label: 'Ator' },
-					{ key: 'register_id', label: 'Caixa' },
-					{ key: 'created_at', label: 'Criado em' },
+					{ key: 'action_type', label: t('action') },
+					{ key: 'actor_id', label: t('actor') },
+					{ key: 'register_id', label: t('register') },
+					{ key: 'created_at', label: t('created') },
 				]}
 			/>
 		);
 	}
 	if (route.startsWith('/admin/reports')) {
-		return <AdminReports config={config} />;
+		return <AdminReports config={config} t={t} />;
 	}
 
-	return <div className="view">Rota de gestao desconhecida</div>;
+	return <div className="view">{t('unknownRoute')}</div>;
 }
 
-function AdminSubnav({ route, navigate }: { route: string; navigate: (route: string) => void }) {
+function AdminSubnav({
+	route,
+	navigate,
+	t,
+}: {
+	route: string;
+	navigate: (route: string) => void;
+	t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
 	const tabs = [
-		{ key: '/admin/dashboard', label: 'Painel' },
-		{ key: '/admin/registers', label: 'Caixas' },
-		{ key: '/admin/sessions', label: 'Sessoes' },
-		{ key: '/admin/transactions', label: 'Transacoes' },
-		{ key: '/admin/audit', label: 'Auditoria' },
-		{ key: '/admin/reports', label: 'Relatorios' },
+		{ key: '/admin/dashboard', label: t('dashboard') },
+		{ key: '/admin/registers', label: t('registers') },
+		{ key: '/admin/sessions', label: t('sessions') },
+		{ key: '/admin/transactions', label: t('transactions') },
+		{ key: '/admin/audit', label: t('audit') },
+		{ key: '/admin/reports', label: t('reports') },
 	];
 
 	return (
 		<div className="admin-subnav">
-			<strong className="admin-subnav-title">Gestao</strong>
+			<strong className="admin-subnav-title">{t('admin')}</strong>
 			<div className="admin-subnav-tabs">
 				{tabs.map((tab) => {
 					const active = route.indexOf(tab.key) === 0;
@@ -785,10 +1328,19 @@ function AdminSubnav({ route, navigate }: { route: string; navigate: (route: str
 
 export default function App({ config }: AppProps) {
 	const [route, navigate] = useAppRoute(config.basePath);
+	const [lang, setLang] = useState<UILang>(initialLang());
 	const permissions = config.permissions;
 	const canAdmin = !!(
 		permissions.canManageRegisters || permissions.canViewAudit || permissions.canSessionControl
 	);
+
+	const t = (key: string, vars: Record<string, string | number> = {}) => {
+		let value = uiText[lang][key] ?? uiText.pt[key] ?? key;
+		Object.keys(vars).forEach((name) => {
+			value = value.replace(`%${name}%`, String(vars[name]));
+		});
+		return value;
+	};
 
 	useEffect(() => {
 		if (route === '/admin' && canAdmin) {
@@ -801,21 +1353,27 @@ export default function App({ config }: AppProps) {
 
 	return (
 		<div className="betterpos-container">
-			<AppHeader navigate={navigate} canAdmin={canAdmin} />
+			<AppHeader
+				navigate={navigate}
+				canAdmin={canAdmin}
+				route={route}
+				t={t}
+				onToggleLang={() => setLang((old) => (old === 'pt' ? 'en' : 'pt'))}
+			/>
 			{route.startsWith('/admin') ? (
 				canAdmin ? (
 					<div>
-						<AdminSubnav route={route} navigate={navigate} />
-						<AdminScreen route={route} config={config} />
+						<AdminSubnav route={route} navigate={navigate} t={t} />
+						<AdminScreen route={route} config={config} t={t} />
 					</div>
 				) : (
 					<div className="view">
-						<h3>Acesso negado</h3>
-						<p>Nao tem permissao para aceder a area de gestao.</p>
+						<h3>{t('accessDenied')}</h3>
+						<p>{t('accessDeniedBody')}</p>
 					</div>
 				)
 			) : (
-				<POSScreen config={config} />
+				<POSScreen config={config} t={t} />
 			)}
 		</div>
 	);

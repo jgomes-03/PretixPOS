@@ -2,8 +2,16 @@ from django.urls import include, re_path
 
 from .api.urls import api_urlpatterns
 from .views.pos import POSIndexView
+from .views.public import PublicBuyView
+from .views.settings import BetterPOSSettingsView
+from .api.public_urls import public_api_urlpatterns
 
 urlpatterns = [
+    re_path(
+        r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/settings/betterpos/?$',
+        BetterPOSSettingsView.as_view(),
+        name='settings',
+    ),
     re_path(
         r'^control/event/(?P<organizer>[^/]+)/(?P<event>[^/]+)/betterpos/api/',
         include((api_urlpatterns, 'api')),
@@ -65,5 +73,15 @@ urlpatterns = [
     ),
 ]
 
-event_patterns = []
+event_patterns = [
+    re_path(
+        r'^buy/api/',
+        include((public_api_urlpatterns, 'public_api')),
+    ),
+    re_path(
+        r'^buy/?$',
+        PublicBuyView.as_view(),
+        name='public.buy',
+    ),
+]
 organizer_patterns = []

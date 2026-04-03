@@ -1,0 +1,35 @@
+{% load i18n static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content="{{ csrf_token }}" />
+    <title>{{ event.name }} - BetterPOS</title>
+    <link rel="stylesheet" href="{% static 'pretixplugins/pretix_betterpos/pos.css' %}">
+</head>
+<body>
+  <div
+    id="betterpos-selfservice-app"
+    data-organizer="{{ event.organizer.slug }}"
+    data-event="{{ event.slug }}"
+    data-event-name="{{ event.name }}"
+    data-base-path="{{ base_path }}"
+    data-api-base="{{ api_base }}"
+    data-csrf-token="{{ csrf_token }}"
+  ></div>
+
+  <script>
+    window.BETTERPOS_SELF = {
+      organizer: '{{ event.organizer.slug }}',
+      event: '{{ event.slug }}',
+      eventName: '{{ event.name|escapejs }}',
+      basePath: '{{ base_path }}',
+      apiBase: '{{ api_base }}',
+      csrfToken: '{{ csrf_token }}'
+    };
+  </script>
+
+  <script type="module" defer src="{% static 'pretixplugins/pretix_betterpos/dist/betterpos-selfservice.js' %}"></script>
+</body>
+</html>

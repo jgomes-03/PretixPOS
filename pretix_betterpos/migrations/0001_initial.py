@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('pretixbase', '0297_outgoingmail'),
+        ('pretixbase', '0297_outgoingmail.py'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

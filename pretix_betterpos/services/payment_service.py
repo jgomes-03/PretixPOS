@@ -124,9 +124,13 @@ class PaymentService:
 
     @staticmethod
     @transaction.atomic
-    def pay_cash(*, transaction_row, user):
+    def pay_cash(*, transaction_row, user, phone=None):
         if transaction_row.state not in {BetterposTransaction.STATE_ORDER_CREATED, BetterposTransaction.STATE_PAYMENT_CREATED}:
             raise InvalidStateError('Transaction cannot be paid in current state')
+
+        normalized_phone = ''.join(ch for ch in str(phone or '') if ch.isdigit() or ch == '+')
+        if not normalized_phone:
+            raise ValidationError('Phone number is required')
 
         payment = OrderPayment.objects.create(
             order=transaction_row.order,
@@ -139,7 +143,11 @@ class PaymentService:
         transaction_row.payment = payment
         transaction_row.channel = BetterposTransaction.CHANNEL_CASH
         transaction_row.state = BetterposTransaction.STATE_PAID
-        transaction_row.save(update_fields=['payment', 'channel', 'state', 'updated_at'])
+        transaction_row.metadata = {
+            **transaction_row.metadata,
+            'phone_number': normalized_phone,
+        }
+        transaction_row.save(update_fields=['payment', 'channel', 'state', 'metadata', 'updated_at'])
 
         session = transaction_row.session
         if session:
@@ -154,7 +162,7 @@ class PaymentService:
             session=transaction_row.session,
             order=transaction_row.order,
             payment=payment,
-            payload={'state': BetterposTransaction.STATE_PAID, 'channel': 'cash'},
+            payload={'state': BetterposTransaction.STATE_PAID, 'channel': 'cash', 'phone_number': normalized_phone},
         )
         return payment
 
@@ -270,6 +278,7 @@ class PaymentService:
             **transaction_row.metadata,
             'provider': provider,
             'provider_response': str(response),
+            'phone_number': normalized_phone,
         }
         transaction_row.save(update_fields=['payment', 'channel', 'state', 'metadata', 'updated_at'])
 
@@ -281,6 +290,6 @@ class PaymentService:
             session=transaction_row.session,
             order=transaction_row.order,
             payment=payment,
-            payload={'state': BetterposTransaction.STATE_PENDING, 'channel': 'eupago'},
+            payload={'state': BetterposTransaction.STATE_PENDING, 'channel': 'eupago', 'phone_number': normalized_phone},
         )
         return payment, response

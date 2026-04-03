@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.db.models import Sum
 from django.views import View
+from django.utils import timezone
 from pretix.base.models import Item, OrderPayment
 
 from pretix_betterpos.auth import get_event_from_request, has_pos_permission
@@ -295,6 +296,7 @@ class CreateOrderView(BasePOSApiView):
                 session=session,
                 cart_totals=cart_totals,
                 locale=payload.get('locale', 'en'),
+                phone=payload.get('phone'),
             )
             if idempotency_key:
                 transaction_row.idempotency_key = idempotency_key
@@ -321,7 +323,11 @@ class CashPaymentView(BasePOSApiView):
                 event=self.event,
                 pk=payload.get('transaction_id'),
             )
-            payment = PaymentService.pay_cash(transaction_row=transaction_row, user=request.user)
+            payment = PaymentService.pay_cash(
+                transaction_row=transaction_row,
+                user=request.user,
+                phone=payload.get('phone'),
+            )
             return JsonResponse(
                 {
                     'payment_id': payment.id,
@@ -365,6 +371,27 @@ class EuPagoPaymentView(BasePOSApiView):
 
 
 class TransactionStatusView(BasePOSApiView):
+    PENDING_AUTO_CANCEL_AFTER = timedelta(minutes=5)
+
+    def _is_pending_timeout_reached(self, transaction_row):
+        if not transaction_row.created_at:
+            return False
+        return transaction_row.created_at <= timezone.now() - self.PENDING_AUTO_CANCEL_AFTER
+
+    def _cancel_unpaid_timeout(self, transaction_row, request, *, source, reason):
+        transaction_row = CancellationService.cancel_unpaid_order(
+            transaction_row=transaction_row,
+            user=request.user,
+            reason=reason,
+        )
+        transaction_row.metadata = {
+            **transaction_row.metadata,
+            'source': source,
+            'timeout_minutes': int(self.PENDING_AUTO_CANCEL_AFTER.total_seconds() // 60),
+        }
+        transaction_row.save(update_fields=['metadata', 'updated_at'])
+        return transaction_row
+
     def get(self, request, transaction_id, *args, **kwargs):
         try:
             transaction_row = BetterposTransaction.objects.select_related('payment', 'order').get(event=self.event, pk=transaction_id)
@@ -395,6 +422,13 @@ class TransactionStatusView(BasePOSApiView):
                         external_state='paid',
                         metadata={'source': 'status_poll_payment_state'},
                     ) or transaction_row
+                elif payment.state == OrderPayment.PAYMENT_STATE_CANCELED and self._is_pending_timeout_reached(transaction_row):
+                    transaction_row = self._cancel_unpaid_timeout(
+                        transaction_row,
+                        request,
+                        source='status_poll_payment_state_timeout',
+                        reason='Payment canceled or rejected and timeout reached without successful confirmation.',
+                    )
                 elif payment.state in (OrderPayment.PAYMENT_STATE_FAILED, OrderPayment.PAYMENT_STATE_CANCELED):
                     transaction_row = AsyncSettlementService.finalize_pending_payment(
                         payment=payment,
@@ -480,6 +514,18 @@ class TransactionStatusView(BasePOSApiView):
                             'note': 'No payment object linked while order expired/canceled',
                         }
                         transaction_row.save(update_fields=['state', 'metadata', 'updated_at'])
+
+                if (
+                    transaction_row.state == BetterposTransaction.STATE_PENDING
+                    and transaction_row.order.status == transaction_row.order.STATUS_PENDING
+                    and self._is_pending_timeout_reached(transaction_row)
+                ):
+                    transaction_row = self._cancel_unpaid_timeout(
+                        transaction_row,
+                        request,
+                        source='status_poll_pending_timeout',
+                        reason='No payment confirmation received within 5 minutes.',
+                    )
 
             transaction_row.refresh_from_db()
             return JsonResponse({'transaction': serialize_transaction(transaction_row)})
