@@ -4,15 +4,15 @@
    ================================================ */
 
 :root {
-  /* Color Palette - Unified */
-  --color-primary: #2d7f5e;
-  --color-primary-dark: #1d5c45;
-  --color-primary-light: #3fa371;
-  --color-primary-lighter: #e8f5f0;
-  
-  --color-secondary: #34495e;
-  --color-secondary-light: #4a5f7f;
-  --color-secondary-lighter: #ecf0f5;
+  /* Color Palette - NET-ISCTE */
+  --color-primary: #123f79;
+  --color-primary-dark: #0c2d58;
+  --color-primary-light: #2f5f9e;
+  --color-primary-lighter: #e9f0fb;
+
+  --color-secondary: #274f87;
+  --color-secondary-light: #3f669d;
+  --color-secondary-lighter: #eaf1f9;
   
   --color-success: #27ae60;
   --color-success-light: #d4edda;
@@ -26,34 +26,34 @@
   --color-danger-light: #f8d7da;
   --color-danger-dark: #721c24;
   
-  --color-info: #3498db;
-  --color-info-light: #d1ecf1;
-  --color-info-dark: #0c5460;
+  --color-info: #1f6fb2;
+  --color-info-light: #e8f4ff;
+  --color-info-dark: #114977;
   
-  --color-neutral-50: #f8f9fa;
-  --color-neutral-100: #f6f4ef;
-  --color-neutral-200: #e1e4e8;
-  --color-neutral-300: #d9d3c8;
-  --color-neutral-400: #bbb;
-  --color-neutral-500: #999;
-  --color-neutral-600: #666;
-  --color-neutral-700: #2c3e50;
-  --color-neutral-800: #1f1f1f;
+  --color-neutral-50: #f4f7fb;
+  --color-neutral-100: #eaf0f8;
+  --color-neutral-200: #d6dfeb;
+  --color-neutral-300: #b2c2d7;
+  --color-neutral-400: #8198b4;
+  --color-neutral-500: #587292;
+  --color-neutral-600: #3d5674;
+  --color-neutral-700: #2a3f57;
+  --color-neutral-800: #1a2b3f;
   
   --color-white: #ffffff;
   --color-black: #000000;
   
   /* Typography - Unified */
-  --font-family-base: "Segoe UI", "Noto Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family-base: "Barlow", "Segoe UI", "Noto Sans", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-family-mono: "Courier New", monospace;
   
   --font-size-xs: 12px;
-  --font-size-sm: 14px;
+  --font-size-sm: 15px;
   --font-size-base: 16px;
   --font-size-md: 18px;
   --font-size-lg: 20px;
-  --font-size-xl: 24px;
-  --font-size-2xl: 32px;
+  --font-size-xl: 26px;
+  --font-size-2xl: 34px;
   
   --font-weight-normal: 400;
   --font-weight-medium: 500;
@@ -75,15 +75,15 @@
   
   /* Border Radius - Unified */
   --border-radius-none: 0;
-  --border-radius-sm: 4px;
-  --border-radius-md: 8px;
-  --border-radius-lg: 12px;
+  --border-radius-sm: 6px;
+  --border-radius-md: 10px;
+  --border-radius-lg: 16px;
   --border-radius-full: 9999px;
   
   /* Shadows - Unified */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
+  --shadow-sm: 0 2px 8px rgba(14, 46, 84, 0.08);
+  --shadow-md: 0 8px 18px rgba(14, 46, 84, 0.12);
+  --shadow-lg: 0 14px 32px rgba(14, 46, 84, 0.18);
   --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.3);
   
   /* Transitions - Unified */

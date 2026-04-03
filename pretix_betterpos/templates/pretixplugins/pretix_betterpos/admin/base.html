@@ -6,8 +6,8 @@
     <!-- Sidebar Navigation -->
     <aside class="betterpos-sidebar">
         <div class="sidebar-header">
-            <h3>{% trans "BetterPOS" %}</h3>
-            <p class="sidebar-subtitle">{% trans "Management" %}</p>
+            <h3>{% trans "NET BetterPOS" %}</h3>
+            <p class="sidebar-subtitle">{% trans "NET-ISCTE Management" %}</p>
         </div>
         
         <nav class="sidebar-nav">
@@ -15,42 +15,42 @@
                 <li>
                           <a href="{% url 'plugins:pretix_betterpos:dashboard' organizer=event.organizer.slug event=event.slug %}" 
                        class="nav-link {% if 'dashboard' in request.resolver_match.url_name %}active{% endif %}">
-                        <span class="nav-icon">📊</span>
+                        <span class="nav-icon">DB</span>
                         <span class="nav-label">{% trans "Dashboard" %}</span>
                     </a>
                 </li>
                 <li>
                           <a href="{% url 'plugins:pretix_betterpos:registers' organizer=event.organizer.slug event=event.slug %}" 
                        class="nav-link {% if 'register' in request.resolver_match.url_name %}active{% endif %}">
-                        <span class="nav-icon">🏪</span>
+                        <span class="nav-icon">RG</span>
                         <span class="nav-label">{% trans "Registers" %}</span>
                     </a>
                 </li>
                 <li>
                           <a href="{% url 'plugins:pretix_betterpos:sessions' organizer=event.organizer.slug event=event.slug %}" 
                        class="nav-link {% if 'session' in request.resolver_match.url_name %}active{% endif %}">
-                        <span class="nav-icon">📱</span>
+                        <span class="nav-icon">SS</span>
                         <span class="nav-label">{% trans "Sessions" %}</span>
                     </a>
                 </li>
                 <li>
                           <a href="{% url 'plugins:pretix_betterpos:transactions' organizer=event.organizer.slug event=event.slug %}" 
                        class="nav-link {% if 'transaction' in request.resolver_match.url_name %}active{% endif %}">
-                        <span class="nav-icon">💳</span>
+                        <span class="nav-icon">TX</span>
                         <span class="nav-label">{% trans "Transactions" %}</span>
                     </a>
                 </li>
                 <li>
                           <a href="{% url 'plugins:pretix_betterpos:audit' organizer=event.organizer.slug event=event.slug %}" 
                        class="nav-link {% if 'audit' in request.resolver_match.url_name %}active{% endif %}">
-                        <span class="nav-icon">📋</span>
+                        <span class="nav-icon">AU</span>
                         <span class="nav-label">{% trans "Audit Log" %}</span>
                     </a>
                 </li>
                 <li>
                           <a href="{% url 'plugins:pretix_betterpos:reports' organizer=event.organizer.slug event=event.slug %}" 
                        class="nav-link {% if 'report' in request.resolver_match.url_name %}active{% endif %}">
-                        <span class="nav-icon">📈</span>
+                        <span class="nav-icon">RP</span>
                         <span class="nav-label">{% trans "Reports" %}</span>
                     </a>
                 </li>

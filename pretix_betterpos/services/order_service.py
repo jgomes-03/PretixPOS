@@ -1,5 +1,7 @@
 from django.db import transaction
 from django.db.models import Sum
+from phonenumber_field.phonenumber import to_python
+from phonenumbers import SUPPORTED_REGIONS
 from pretix.base.models import Order, OrderPosition
 
 from pretix_betterpos.models import BetterposTransaction
@@ -9,6 +11,24 @@ from .base import ValidationError
 
 
 class OrderOrchestrationService:
+    @staticmethod
+    def _normalize_order_phone(event, phone):
+        raw_phone = str(phone or '').strip()
+        if not raw_phone:
+            raise ValidationError('Phone number is required')
+
+        if event.settings.region in SUPPORTED_REGIONS:
+            region = event.settings.region
+        elif event.settings.locale[:2].upper() in SUPPORTED_REGIONS:
+            region = event.settings.locale[:2].upper()
+        else:
+            region = None
+
+        phone_number = to_python(raw_phone, region)
+        if not phone_number or not phone_number.is_valid():
+            raise ValidationError('Enter a valid phone number')
+        return phone_number
+
     @staticmethod
     def _resolve_order_email(user):
         user_id = getattr(user, 'pk', None) or 'unknown'
@@ -52,7 +72,7 @@ class OrderOrchestrationService:
 
     @staticmethod
     @transaction.atomic
-    def create_order_from_cart(*, event, user, register, session, cart_totals, locale='en'):
+    def create_order_from_cart(*, event, user, register, session, cart_totals, locale='en', phone=None):
         if not session or session.status != session.STATUS_OPEN:
             raise ValidationError('An open cash session is required before selling')
 
@@ -94,12 +114,14 @@ class OrderOrchestrationService:
             )
 
         sales_channel = OrderOrchestrationService._resolve_sales_channel(event)
+        order_phone = OrderOrchestrationService._normalize_order_phone(event, phone)
 
         order = Order.objects.create(
             event=event,
             status=Order.STATUS_PENDING,
             locale=locale,
             email=OrderOrchestrationService._resolve_order_email(user),
+            phone=order_phone,
             total=cart_totals.get('total', '0.00'),
             sales_channel=sales_channel,
         )
