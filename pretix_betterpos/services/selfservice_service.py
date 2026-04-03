@@ -210,6 +210,13 @@ class SelfserviceCheckoutService:
             elif payment.state in (OrderPayment.PAYMENT_STATE_FAILED, OrderPayment.PAYMENT_STATE_CANCELED):
                 resolved_state = BetterposSelfserviceCheckout.STATE_FAILED
 
+        if resolved_state == BetterposSelfserviceCheckout.STATE_FAILED and checkout.order.status == Order.STATUS_PENDING:
+            checkout.order.status = Order.STATUS_CANCELED
+            try:
+                checkout.order.save(update_fields=['status'])
+            except OperationalError:
+                pass
+
         if checkout.is_expired() and resolved_state == BetterposSelfserviceCheckout.STATE_PENDING:
             if checkout.order.status == Order.STATUS_PENDING:
                 checkout.order.status = Order.STATUS_CANCELED
