@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createApi } from './api';
 import type {
 	AuditRow,
@@ -286,6 +286,33 @@ function Banner({ error }: { error: string }) {
 	return <div className="error-box">{error}</div>;
 }
 
+function Modal({
+	open,
+	title,
+	children,
+	onClose,
+}: {
+	open: boolean;
+	title: string;
+	children: ReactNode;
+	onClose: () => void;
+}) {
+	if (!open) return null;
+	return (
+		<div className="modal-backdrop" onClick={onClose}>
+			<div className="modal-card" onClick={(ev) => ev.stopPropagation()}>
+				<div className="modal-header">
+					<h4>{title}</h4>
+					<button type="button" className="btn-secondary modal-close-btn" onClick={onClose}>
+						x
+					</button>
+				</div>
+				<div className="modal-body">{children}</div>
+			</div>
+		</div>
+	);
+}
+
 function AppHeader({
 	canAdmin,
 	navigate,
@@ -354,6 +381,13 @@ function POSScreen({
 	const [pendingEuPagoTxId, setPendingEuPagoTxId] = useState<number | null>(null);
 	const [error, setError] = useState('');
 	const [notice, setNotice] = useState('');
+	const [openSessionModal, setOpenSessionModal] = useState(false);
+	const [openingFloat, setOpeningFloat] = useState('0.00');
+	const [closeSessionModal, setCloseSessionModal] = useState(false);
+	const [countedCash, setCountedCash] = useState('0.00');
+	const [phoneModal, setPhoneModal] = useState(false);
+	const [phoneInput, setPhoneInput] = useState('');
+	const [pendingPaymentChannel, setPendingPaymentChannel] = useState<'cash' | 'eupago' | null>(null);
 	const eupagoPollRef = useRef<number | null>(null);
 
 	const isPaymentPending = pendingEuPagoTxId !== null;
@@ -416,13 +450,17 @@ function POSScreen({
 
 	function openSession() {
 		if (!selectedRegister) return;
-		const amount = window.prompt(t('openingFloatPrompt'), '0.00');
-		if (amount === null) return;
+		setOpeningFloat('0.00');
+		setOpenSessionModal(true);
+	}
+
+	function confirmOpenSession() {
+		if (!selectedRegister) return;
 		setLoading(true);
 		setError('');
 		setNotice('');
 		api
-			.sessionOpen({ register_id: selectedRegister.id, opening_float: amount })
+			.sessionOpen({ register_id: selectedRegister.id, opening_float: openingFloat })
 			.then((data) => {
 				setSession({
 					id: data.session_id,
@@ -436,25 +474,35 @@ function POSScreen({
 				setCatalog(catalogData.items || []);
 			})
 			.catch((err: Error) => setError(err.message))
-			.finally(() => setLoading(false));
+			.finally(() => {
+				setLoading(false);
+				setOpenSessionModal(false);
+			});
 	}
 
 	function closeSession() {
 		if (!session) return;
-		const counted = window.prompt(t('countedCashPrompt'), '0.00');
-		if (counted === null) return;
+		setCountedCash('0.00');
+		setCloseSessionModal(true);
+	}
+
+	function confirmCloseSession() {
+		if (!session) return;
 		setLoading(true);
 		setError('');
 		setNotice('');
 		api
-			.sessionClose({ register_id: session.register_id, counted_cash: counted })
+			.sessionClose({ register_id: session.register_id, counted_cash: countedCash })
 			.then(() => {
 				setSession(null);
 				setCart([]);
 				setCatalog([]);
 			})
 			.catch((err: Error) => setError(err.message))
-			.finally(() => setLoading(false));
+			.finally(() => {
+				setLoading(false);
+				setCloseSessionModal(false);
+			});
 	}
 
 	function addToCart(item: CatalogItem) {
@@ -500,21 +548,14 @@ function POSScreen({
 		return created.transaction;
 	}
 
-	function requestPhoneNumber(): string | null {
-		const phoneInput = window.prompt(t('phonePrompt'), '');
-		if (phoneInput === null) return null;
-		const phone = phoneInput.replace(/\s+/g, '');
-		if (!phone) {
-			setError(t('phoneRequired'));
-			return null;
-		}
-		return phone;
+	function askPhoneFor(channel: 'cash' | 'eupago') {
+		setPhoneInput('');
+		setPendingPaymentChannel(channel);
+		setPhoneModal(true);
 	}
 
-	async function payCash() {
+	async function startCashPayment(phone: string) {
 		if (!session || !cart.length || isPaymentPending) return;
-		const phone = requestPhoneNumber();
-		if (!phone) return;
 		setLoading(true);
 		setError('');
 		setNotice('');
@@ -530,13 +571,8 @@ function POSScreen({
 		}
 	}
 
-	async function payEupago() {
+	async function startEupagoPayment(phone: string) {
 		if (!session || !cart.length || isPaymentPending) return;
-		const phone = requestPhoneNumber();
-		if (!phone) {
-			return;
-		}
-
 		setLoading(true);
 		setError('');
 		setNotice('');
@@ -588,6 +624,22 @@ function POSScreen({
 		} finally {
 			setLoading(false);
 		}
+	}
+
+	async function confirmPhoneAndPay() {
+		const normalizedPhone = phoneInput.replace(/\s+/g, '');
+		if (!normalizedPhone) {
+			setError(t('phoneRequired'));
+			return;
+		}
+		setPhoneModal(false);
+		if (pendingPaymentChannel === 'cash') {
+			await startCashPayment(normalizedPhone);
+		}
+		if (pendingPaymentChannel === 'eupago') {
+			await startEupagoPayment(normalizedPhone);
+		}
+		setPendingPaymentChannel(null);
 	}
 
 	const total = useMemo(
@@ -685,10 +737,10 @@ function POSScreen({
 							<p>{cart.length}x</p>
 						</div>
 
-						<button className="pay-btn pay-btn-cash" onClick={payCash} disabled={loading || !cart.length || !config.permissions.canSell || isPaymentPending}>
+						<button className="pay-btn pay-btn-cash" onClick={() => askPhoneFor('cash')} disabled={loading || !cart.length || !config.permissions.canSell || isPaymentPending}>
 							{t('payCash')}
 						</button>
-						<button className="pay-btn pay-btn-eupago" onClick={payEupago} disabled={loading || !cart.length || !config.permissions.canSell || isPaymentPending}>
+						<button className="pay-btn pay-btn-eupago" onClick={() => askPhoneFor('eupago')} disabled={loading || !cart.length || !config.permissions.canSell || isPaymentPending}>
 							{t('payEuPago')}
 						</button>
 						<button className="pay-btn pay-btn-clear" onClick={clearCart} disabled={loading || !cart.length || isPaymentPending}>
@@ -701,6 +753,33 @@ function POSScreen({
 					<p>{t('openSessionToSell')}</p>
 				</div>
 			)}
+
+			<Modal open={openSessionModal} title={t('openSession')} onClose={() => setOpenSessionModal(false)}>
+				<label>{t('openingFloatPrompt')}</label>
+				<input value={openingFloat} onChange={(ev) => setOpeningFloat(ev.target.value)} />
+				<div className="modal-actions">
+					<button type="button" className="btn-secondary" onClick={() => setOpenSessionModal(false)}>{t('cancel')}</button>
+					<button type="button" onClick={confirmOpenSession} disabled={loading}>{t('openSession')}</button>
+				</div>
+			</Modal>
+
+			<Modal open={closeSessionModal} title={t('closeSession')} onClose={() => setCloseSessionModal(false)}>
+				<label>{t('countedCashPrompt')}</label>
+				<input value={countedCash} onChange={(ev) => setCountedCash(ev.target.value)} />
+				<div className="modal-actions">
+					<button type="button" className="btn-secondary" onClick={() => setCloseSessionModal(false)}>{t('cancel')}</button>
+					<button type="button" onClick={confirmCloseSession} disabled={loading}>{t('closeSession')}</button>
+				</div>
+			</Modal>
+
+			<Modal open={phoneModal} title={t('phonePrompt')} onClose={() => setPhoneModal(false)}>
+				<label>{t('phonePrompt')}</label>
+				<input value={phoneInput} onChange={(ev) => setPhoneInput(ev.target.value)} placeholder="9XXXXXXXX" />
+				<div className="modal-actions">
+					<button type="button" className="btn-secondary" onClick={() => setPhoneModal(false)}>{t('cancel')}</button>
+					<button type="button" onClick={confirmPhoneAndPay} disabled={loading}>{t('save')}</button>
+				</div>
+			</Modal>
 		</div>
 	);
 }
@@ -719,6 +798,7 @@ function AdminRegisters({
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [editingName, setEditingName] = useState('');
 	const [editingCode, setEditingCode] = useState('');
+	const [deactivatingRow, setDeactivatingRow] = useState<Register | null>(null);
 	const [error, setError] = useState('');
 
 	function load() {
@@ -753,11 +833,16 @@ function AdminRegisters({
 	}
 
 	function deactivate(row: Register) {
-		if (!window.confirm(t('disableRegisterConfirm', { name: row.name }))) return;
+		setDeactivatingRow(row);
+	}
+
+	function confirmDeactivate() {
+		if (!deactivatingRow) return;
 		api
-			.registerDelete(row.id)
+			.registerDelete(deactivatingRow.id)
 			.then(load)
-			.catch((err: Error) => setError(err.message));
+			.catch((err: Error) => setError(err.message))
+			.finally(() => setDeactivatingRow(null));
 	}
 
 	function cancelEdit() {
@@ -855,6 +940,18 @@ function AdminRegisters({
 					</tbody>
 				</table>
 			</div>
+
+			<Modal
+				open={deactivatingRow !== null}
+				title={t('deactivate')}
+				onClose={() => setDeactivatingRow(null)}
+			>
+				<p>{deactivatingRow ? t('disableRegisterConfirm', { name: deactivatingRow.name }) : ''}</p>
+				<div className="modal-actions">
+					<button type="button" className="btn-secondary" onClick={() => setDeactivatingRow(null)}>{t('cancel')}</button>
+					<button type="button" onClick={confirmDeactivate}>{t('deactivate')}</button>
+				</div>
+			</Modal>
 		</div>
 	);
 }

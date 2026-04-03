@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Sum
 from phonenumber_field.phonenumber import to_python
@@ -11,6 +12,25 @@ from .base import ValidationError
 
 
 class OrderOrchestrationService:
+    @staticmethod
+    def _normalize_order_locale(locale):
+        raw_locale = str(locale or '').strip().lower().replace('_', '-')
+        available_locales = dict(settings.LANGUAGES)
+
+        if raw_locale in available_locales:
+            return raw_locale
+
+        if raw_locale == 'pt':
+            return 'pt-pt' if 'pt-pt' in available_locales else 'pt'
+
+        if raw_locale.startswith('pt-') and 'pt-pt' in available_locales:
+            return 'pt-pt'
+
+        if not raw_locale:
+            return 'en'
+
+        return raw_locale if raw_locale in available_locales else 'en'
+
     @staticmethod
     def _normalize_order_phone(event, phone):
         raw_phone = str(phone or '').strip()
@@ -119,7 +139,7 @@ class OrderOrchestrationService:
         order = Order.objects.create(
             event=event,
             status=Order.STATUS_PENDING,
-            locale=locale,
+            locale=OrderOrchestrationService._normalize_order_locale(locale),
             email=OrderOrchestrationService._resolve_order_email(user),
             phone=order_phone,
             total=cart_totals.get('total', '0.00'),
